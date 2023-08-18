@@ -92,13 +92,18 @@ func prepareStatement(cmd string) (*Statement, error) {
 	cmd_ := strings.Join(args[1:], " ")
 	switch args[0] {
 	case "select":
-		return nil, fmt.Errorf("TODO: Implement select")
+		statement := &Statement{
+			stmnt:       "select",
+			rowToInsert: nil,
+		}
+
+		return statement, nil
 
 	case "insert":
 		row := &Row{}
 		nRead, err := fmt.Sscanf(cmd_, "%d %s %s", &row.id, &row.username, &row.email)
 		if err != nil {
-			fmt.Printf("I read %d things", nRead)
+			return nil, fmt.Errorf("I read %d things but expected 3", nRead)
 		}
 
 		statement := &Statement{
@@ -115,7 +120,12 @@ func prepareStatement(cmd string) (*Statement, error) {
 func executeStatement(table *Table, statement Statement) error {
 	switch statement.stmnt {
 	case "select":
-		fmt.Println("TODO: select handling goes here!")
+		err := executeSelect(table, statement)
+		if err != nil {
+			fmt.Errorf("cannot execute select")
+			return err
+		}
+
 	case "insert":
 		err := executeInsert(table, statement)
 		if err != nil {
@@ -135,6 +145,20 @@ func executeInsert(table *Table, statement Statement) error {
 	}
 
 	table.appendRow(statement.rowToInsert)
+
+	return nil
+}
+
+func executeSelect(table *Table, statement Statement) error {
+	if table.NumRows == 0 {
+		fmt.Println("No rows in this table")
+	}
+	for i := 0; i< table.NumRows; i++ {
+		targetPage := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
+		pageIx := i % ROWS_PER_PAGE
+
+		fmt.Println(table.Pages[targetPage][pageIx])
+	}
 
 	return nil
 }
