@@ -50,7 +50,7 @@ type Table struct {
 	Pages   [TABLE_PAGE_CAP]Page
 }
 
-func NewTable(pageCap int) *Table {
+func NewTable() *Table {
 	var pages [TABLE_PAGE_CAP][ROWS_PER_PAGE]*Row
 
 	return &Table{
@@ -140,7 +140,7 @@ func executeInsert(table *Table, statement Statement) error {
 }
 
 func main() {
-	theTable := NewTable(TABLE_PAGE_CAP)
+	theTable := NewTable()
 
 	scanner := bufio.NewScanner(os.Stdin)
 
