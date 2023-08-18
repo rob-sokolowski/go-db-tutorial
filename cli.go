@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 )
@@ -10,9 +11,10 @@ import (
 // begin region: table structs
 const USERNAME_MAX = 32
 const EMAIL_MAX = 255
-const ROWS_PER_PAGE = 1024
+const ROWS_PER_PAGE = 3
+const TABLE_PAGE_CAP = 10
 
-type Page = [ROWS_PER_PAGE]Row
+type Page = [ROWS_PER_PAGE]*Row
 
 type Row struct {
 	id       int
@@ -45,14 +47,25 @@ type Statement struct {
 
 type Table struct {
 	NumRows int
-	Pages   []Page
+	Pages   [TABLE_PAGE_CAP]Page
 }
 
 func NewTable(pageCap int) *Table {
+	var pages [TABLE_PAGE_CAP][ROWS_PER_PAGE]*Row
+
 	return &Table{
 		NumRows: 0,
-		Pages:   make([][ROWS_PER_PAGE]Row, 0, pageCap),
+		Pages:   pages,
 	}
+}
+
+func (t *Table) appendRow(row *Row) error {
+	targetPage := int(math.Floor(float64(t.NumRows) / float64(ROWS_PER_PAGE)))
+	pageIx := t.NumRows % ROWS_PER_PAGE
+
+	t.Pages[targetPage][pageIx] = row
+	t.NumRows += 1
+	return nil
 }
 
 // end region: table structs
@@ -74,12 +87,12 @@ func doMetaCommand(cmd string) {
 	}
 }
 
-func prepareStatement(cmd string) (Statement, error) {
+func prepareStatement(cmd string) (*Statement, error) {
 	args := strings.Split(cmd, " ")
 	cmd_ := strings.Join(args[1:], " ")
 	switch args[0] {
 	case "select":
-		return nil
+		return nil, fmt.Errorf("TODO: Implement select")
 
 	case "insert":
 		row := &Row{}
@@ -93,22 +106,42 @@ func prepareStatement(cmd string) (Statement, error) {
 			rowToInsert: row,
 		}
 
-		return statement
+		return statement, nil
 	}
 
-	return fmt.Errorf("unrecognized statement: %s", cmd)
+	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func doStatement(cmd string) {
-	switch cmd {
+func executeStatement(table *Table, statement Statement) error {
+	switch statement.stmnt {
 	case "select":
 		fmt.Println("TODO: select handling goes here!")
 	case "insert":
-		fmt.Println("TODO: insert handling goes here!")
+		err := executeInsert(table, statement)
+		if err != nil {
+			fmt.Errorf("cannot execute insert: %s", err)
+			return err
+		}
 	}
+
+	return nil
+}
+
+func executeInsert(table *Table, statement Statement) error {
+	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
+
+	if table.NumRows == maxRows {
+		return fmt.Errorf("max table row count of %d exceeded", maxRows)
+	}
+
+	table.appendRow(statement.rowToInsert)
+
+	return nil
 }
 
 func main() {
+	theTable := NewTable(TABLE_PAGE_CAP)
+
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
@@ -126,11 +159,11 @@ func main() {
 			continue
 		}
 
-		err := prepareStatement(input)
+		statement, err := prepareStatement(input)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		doStatement(input)
+		executeStatement(theTable, *statement)
 	}
 }
