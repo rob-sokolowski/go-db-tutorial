@@ -1,34 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
-	"unsafe"
 )
 
-func TestSizeOfInt(t *testing.T) {
-	var x int
+func TestCli(t *testing.T) {
+	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
+	out := bytes.Buffer{}
+	cli(reader, &out)
 
-	x = 10
-
-	s := unsafe.Sizeof(x)
-	fmt.Println(s)
-}
-
-func TestRow(t *testing.T) {
-	row := &Row{
-		id:       1,
-		username: "jing",
-		email:    "jing@gmail.com",
-	}
-
-	var name = "x"
-	var name2 = "abc"
-	var name3 = "abcd"
-
-	fmt.Println(unsafe.Sizeof(name))
-	fmt.Println(unsafe.Sizeof(name2))
-	fmt.Println(unsafe.Sizeof(name3))
-	fmt.Println(row)
-
+	fmt.Println("TODO: more test cases")
 }

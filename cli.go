@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strings"
@@ -70,21 +71,27 @@ func (t *Table) appendRow(row *Row) error {
 
 // end region: table structs
 
-func validateMetaCommand(cmd string) error {
+func validateMetaCommand(cmd string) (error, bool) {
 	switch cmd {
 	case ".exit":
-		return nil
+		return nil, true
 	}
 
-	return fmt.Errorf("unrecognized meta command: %s", cmd)
+	return fmt.Errorf("unrecognized meta command: %s", cmd), false
 }
 
-func doMetaCommand(cmd string) {
+// doMetaCommand does the meta command, and returns a boolean value you can think of as "shouldQuit".
+// It is the responsibility of the caller to handle graceful quiting. While an os.Exit(0) can be done here
+// it has ramification on unit tests, as it closes the tests themselves!
+func doMetaCommand(cmd string) bool {
 	switch cmd {
+	// Note: the meta command ".exit" is handled outside
 	case ".exit":
 		fmt.Println("adios!")
-		os.Exit(0)
+		return true
 	}
+
+	return false
 }
 
 func prepareStatement(cmd string) (*Statement, error) {
@@ -153,7 +160,7 @@ func executeSelect(table *Table, statement Statement) error {
 	if table.NumRows == 0 {
 		fmt.Println("No rows in this table")
 	}
-	for i := 0; i< table.NumRows; i++ {
+	for i := 0; i < table.NumRows; i++ {
 		targetPage := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
 		pageIx := i % ROWS_PER_PAGE
 
@@ -163,31 +170,39 @@ func executeSelect(table *Table, statement Statement) error {
 	return nil
 }
 
-func main() {
+func cli(reader io.Reader, writer io.Writer) {
 	theTable := NewTable()
-
-	scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(reader)
 
 	for {
-		fmt.Print("db > ")
+		fmt.Fprint(writer, "db > ")
 		scanner.Scan()
 		input := scanner.Text()
 
-		if input[0] == '.' {
-			err := validateMetaCommand(input)
+		if len(input) > 0 && input[0] == '.' {
+			err, shouldQuit := validateMetaCommand(input)
+			if shouldQuit {
+			}
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(writer, err)
 				continue
 			}
-			doMetaCommand(input)
+			if doMetaCommand(input) {
+				// we've received a true value for "shouldQuit"
+				break
+			}
 			continue
 		}
 
 		statement, err := prepareStatement(input)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(writer, err)
 			continue
 		}
 		executeStatement(theTable, *statement)
 	}
+}
+
+func main() {
+	cli(os.Stdin, os.Stdout)
 }
