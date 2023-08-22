@@ -71,13 +71,13 @@ func (t *Table) appendRow(row *Row) error {
 
 // end region: table structs
 
-func validateMetaCommand(cmd string) (error, bool) {
+func validateMetaCommand(cmd string) error {
 	switch cmd {
 	case ".exit":
-		return nil, true
+		return nil
 	}
 
-	return fmt.Errorf("unrecognized meta command: %s", cmd), false
+	return fmt.Errorf("unrecognized meta command: %s", cmd)
 }
 
 // doMetaCommand does the meta command, and returns a boolean value you can think of as "shouldQuit".
@@ -180,9 +180,7 @@ func cli(reader io.Reader, writer io.Writer) {
 		input := scanner.Text()
 
 		if len(input) > 0 && input[0] == '.' {
-			err, shouldQuit := validateMetaCommand(input)
-			if shouldQuit {
-			}
+			err := validateMetaCommand(input)
 			if err != nil {
 				fmt.Fprintln(writer, err)
 				continue
