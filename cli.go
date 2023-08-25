@@ -83,11 +83,11 @@ func validateMetaCommand(cmd string) error {
 // doMetaCommand does the meta command, and returns a boolean value you can think of as "shouldQuit".
 // It is the responsibility of the caller to handle graceful quiting. While an os.Exit(0) can be done here
 // it has ramification on unit tests, as it closes the tests themselves!
-func doMetaCommand(cmd string) bool {
+func doMetaCommand(cmd string, w io.Writer) bool {
 	switch cmd {
 	// Note: the meta command ".exit" is handled outside
 	case ".exit":
-		fmt.Println("adios!")
+		fmt.Fprintln(w, "adios!")
 		return true
 	}
 
@@ -124,10 +124,10 @@ func prepareStatement(cmd string) (*Statement, error) {
 	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func executeStatement(table *Table, statement Statement) error {
+func executeStatement(table *Table, statement Statement, w io.Writer) error {
 	switch statement.stmnt {
 	case "select":
-		err := executeSelect(table, statement)
+		err := executeSelect(table, statement, w)
 		if err != nil {
 			fmt.Errorf("cannot execute select")
 			return err
@@ -140,7 +140,7 @@ func executeStatement(table *Table, statement Statement) error {
 			return err
 		}
 	}
-
+	fmt.Fprintln(w, "statement executed.")
 	return nil
 }
 
@@ -156,15 +156,15 @@ func executeInsert(table *Table, statement Statement) error {
 	return nil
 }
 
-func executeSelect(table *Table, statement Statement) error {
+func executeSelect(table *Table, statement Statement, w io.Writer) error {
 	if table.NumRows == 0 {
-		fmt.Println("No rows in this table")
+		fmt.Fprintln(w, "No rows in this table")
 	}
 	for i := 0; i < table.NumRows; i++ {
 		targetPage := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
 		pageIx := i % ROWS_PER_PAGE
 
-		fmt.Println(table.Pages[targetPage][pageIx])
+		fmt.Fprintln(w, table.Pages[targetPage][pageIx])
 	}
 
 	return nil
@@ -185,7 +185,7 @@ func cli(reader io.Reader, writer io.Writer) {
 				fmt.Fprintln(writer, err)
 				continue
 			}
-			if doMetaCommand(input) {
+			if doMetaCommand(input, writer) {
 				// we've received a true value for "shouldQuit"
 				break
 			}
@@ -197,7 +197,7 @@ func cli(reader io.Reader, writer io.Writer) {
 			fmt.Fprintln(writer, err)
 			continue
 		}
-		executeStatement(theTable, *statement)
+		executeStatement(theTable, *statement, writer)
 	}
 }
 
