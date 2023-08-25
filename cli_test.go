@@ -1,10 +1,10 @@
 package main
 
 import (
-	// "bytes"
+	"bytes"
 	"fmt"
 	// "os/exec"
-	// "strings"
+	"strings"
 	"testing"
 	"github.com/stretchr/testify/assert"
 	// "github.com/stretchr/testify/mock"
@@ -18,15 +18,16 @@ func TestSomething(t *testing.T) {
 
 }
 
-// func TestCli(t *testing.T) {
-// 	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
-// 	out := bytes.Buffer{}
-// 	cli(reader, &out)
+// Q: Why does this work even tho cli() is not capitalized?
+func TestCli(t *testing.T) {
+	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
+	out := bytes.Buffer{}
+	cli(reader, &out)
 
-// 	fmt.Println("TODO: more test cases")
-// }
+	fmt.Println("TODO: more test cases")
+}
 
-// it should insert one row, return that row, and exit
+// TODO: it should insert one row, return that row, and exit
 
 // it should throw an err if usernames or emails are longer than column size
 func TestsetUsername(t *testing.T) {
@@ -63,32 +64,32 @@ func TestPrepareStatement (t *testing.T) {
 	assert.Equal(t, s, val1)
 	assert.Equal(t, val2, nil)
 
-
 	// insert
 	res, err := PrepareStatement("insert 1 liz liz@pup.com")
-
 	// expected row & statement
 	r:= &Row{
 		id: 1,
 		username: "liz",
 		email: "liz@pup.com",
 	}
-
 	s2 := &Statement{
 		stmnt: "insert",
 		rowToInsert: r,
 	}
-
 	assert.Equal(t, s2, res)
 	assert.Nil(t, err)
 
-	// not enough or too many args passed or args are of wrong type
-
+	// insert with args are of wrong type
+	s3, err2 := PrepareStatement("insert liz liz@pup.com")
+	// why does this work when we pass t, but other error msgs do not?
+	assert.Equal(t, fmt.Errorf("I read 0 things but expected 3"), err2)
+	assert.Nil(t, s3)
 }
 
-// it should throw an err if exceeds max rows for table
 
-// it should not overwrite data on insert
+// TODO: it should throw an err if exceeds max rows for table
+// TODO: it should not overwrite data on insert
+// Q: how to mock a table and test behavior?
 
 // it should exit or throw error for metacommands
 func TestValidateMetaCommand(t *testing.T) {
