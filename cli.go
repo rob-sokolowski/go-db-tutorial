@@ -34,7 +34,7 @@ func (r *Row) setUsername(u string) error {
 
 func (r *Row) setEmail(e string) error {
 	if len(e) > EMAIL_MAX {
-		return fmt.Errorf("maximum length of username is %d", EMAIL_MAX)
+		return fmt.Errorf("maximum length of email is %d", EMAIL_MAX)
 	}
 
 	r.username = e
@@ -82,7 +82,7 @@ func validateMetaCommand(cmd string) error {
 
 // doMetaCommand does the meta command, and returns a boolean value you can think of as "shouldQuit".
 // It is the responsibility of the caller to handle graceful quiting. While an os.Exit(0) can be done here
-// it has ramification on unit tests, as it closes the tests themselves!
+// it limits unit tests, as it closes the tests themselves!
 func doMetaCommand(cmd string) bool {
 	switch cmd {
 	// Note: the meta command ".exit" is handled outside
@@ -94,7 +94,7 @@ func doMetaCommand(cmd string) bool {
 	return false
 }
 
-func prepareStatement(cmd string) (*Statement, error) {
+func PrepareStatement(cmd string) (*Statement, error) {
 	args := strings.Split(cmd, " ")
 	cmd_ := strings.Join(args[1:], " ")
 	switch args[0] {
@@ -124,17 +124,17 @@ func prepareStatement(cmd string) (*Statement, error) {
 	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func executeStatement(table *Table, statement Statement) error {
+func ExecuteStatement(table *Table, statement Statement) error {
 	switch statement.stmnt {
 	case "select":
-		err := executeSelect(table, statement)
+		err := ExecuteSelect(table, statement)
 		if err != nil {
 			fmt.Errorf("cannot execute select")
 			return err
 		}
 
 	case "insert":
-		err := executeInsert(table, statement)
+		err := ExecuteInsert(table, statement)
 		if err != nil {
 			fmt.Errorf("cannot execute insert: %s", err)
 			return err
@@ -144,7 +144,7 @@ func executeStatement(table *Table, statement Statement) error {
 	return nil
 }
 
-func executeInsert(table *Table, statement Statement) error {
+func ExecuteInsert(table *Table, statement Statement) error {
 	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
 
 	if table.NumRows == maxRows {
@@ -156,7 +156,7 @@ func executeInsert(table *Table, statement Statement) error {
 	return nil
 }
 
-func executeSelect(table *Table, statement Statement) error {
+func ExecuteSelect(table *Table, statement Statement) error {
 	if table.NumRows == 0 {
 		fmt.Println("No rows in this table")
 	}
@@ -192,12 +192,12 @@ func cli(reader io.Reader, writer io.Writer) {
 			continue
 		}
 
-		statement, err := prepareStatement(input)
+		statement, err := PrepareStatement(input)
 		if err != nil {
 			fmt.Fprintln(writer, err)
 			continue
 		}
-		executeStatement(theTable, *statement)
+		ExecuteStatement(theTable, *statement)
 	}
 }
 

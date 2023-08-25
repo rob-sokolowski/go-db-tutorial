@@ -1,16 +1,107 @@
 package main
 
 import (
-	"bytes"
+	// "bytes"
 	"fmt"
-	"strings"
+	// "os/exec"
+	// "strings"
 	"testing"
+	"github.com/stretchr/testify/assert"
+	// "github.com/stretchr/testify/mock"
 )
 
-func TestCli(t *testing.T) {
-	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
-	out := bytes.Buffer{}
-	cli(reader, &out)
+// Does testify work?
+func TestSomething(t *testing.T) {
 
-	fmt.Println("TODO: more test cases")
+  // assert equality
+  assert.Equal(t, 123, 123, "they should be equal")
+
+}
+
+// func TestCli(t *testing.T) {
+// 	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
+// 	out := bytes.Buffer{}
+// 	cli(reader, &out)
+
+// 	fmt.Println("TODO: more test cases")
+// }
+
+// it should insert one row, return that row, and exit
+
+// it should throw an err if usernames or emails are longer than column size
+func TestsetUsername(t *testing.T) {
+	assert := assert.New(t)
+
+	r := &Row{} 
+	u := "liUdaBpkVLatMxcsRpyfOjiaNUDQebvot"
+
+	if assert.NotNil(t, r.setUsername(u)) {
+		assert.Equal(fmt.Errorf("maximum length of username is %d", USERNAME_MAX), r.setUsername(u))
+	}
+}
+
+func TestSetEmail(t *testing.T) {
+	assert := assert.New(t)
+
+	r := &Row{}
+	e := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla auctor hendrerit neque vel varius. Sed vel turpis nec arcu condimentum hendrerit id ut nulla. Vestibulum lacinia ipsum ac tellus sollicitudin, eget tempor eros bibendum. Integer congue lobortis velit at malesuada. Nullam semper dolor eu aliquet luctus. Duis consectetur nec sapien vel efficitur. Sed scelerisque libero sed justo vestibulum, vel ullamcorper odio dictum."
+
+	if assert.NotNil(t, r.setEmail(e)) {
+		// only passes if we don't pass t - why?
+		assert.Equal(fmt.Errorf("maximum length of email is %d", EMAIL_MAX), r.setEmail(e))
+	}
+}	
+
+// it should throw an error if any required field is missing on insert
+func TestPrepareStatement (t *testing.T) {
+	// select
+	s := &Statement{
+		stmnt: "select",
+		rowToInsert: nil,
+	}
+	val1, val2 := PrepareStatement("select")
+	assert.Equal(t, s, val1)
+	assert.Equal(t, val2, nil)
+
+
+	// insert
+	res, err := PrepareStatement("insert 1 liz liz@pup.com")
+
+	// expected row & statement
+	r:= &Row{
+		id: 1,
+		username: "liz",
+		email: "liz@pup.com",
+	}
+
+	s2 := &Statement{
+		stmnt: "insert",
+		rowToInsert: r,
+	}
+
+	assert.Equal(t, s2, res)
+	assert.Nil(t, err)
+
+	// not enough or too many args passed or args are of wrong type
+
+}
+
+// it should throw an err if exceeds max rows for table
+
+// it should not overwrite data on insert
+
+// it should exit or throw error for metacommands
+func TestValidateMetaCommand(t *testing.T) {
+	assert := assert.New(t)
+
+	// should return nil if command is .exit
+	// what does passing t do? why does test pass if we don't pass t? why does it fail if we do?
+	assert.Nil(validateMetaCommand(".exit"))
+
+	// TODO: should exit if command is .exit
+
+	// should return error is command not .exit
+	if assert.NotNil(validateMetaCommand(".")) {
+		assert.Equal(fmt.Errorf("unrecognized meta command: ."), validateMetaCommand("."))
+	}
 }
