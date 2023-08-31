@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"encoding/gob"
 	"fmt"
 	"io"
-	"math"
+	"log"
+	// "math"
 	"os"
 	"strings"
 )
@@ -15,35 +17,13 @@ const EMAIL_MAX = 255
 const ROWS_PER_PAGE = 3
 const TABLE_PAGE_CAP = 10
 
-type Page = [ROWS_PER_PAGE]*Row
-
 type Row struct {
 	Id       int
 	Username string
 	Email    string
 }
 
-func writeToDisk(filename string, row Row) {
-
-}
-
-func (r *Row) setUsername(u string) error {
-	if len(u) > USERNAME_MAX {
-		return fmt.Errorf("maximum length of Username is %d", USERNAME_MAX)
-	}
-
-	r.Username = u
-	return nil
-}
-
-func (r *Row) setEmail(e string) error {
-	if len(e) > EMAIL_MAX {
-		return fmt.Errorf("maximum length of Username is %d", EMAIL_MAX)
-	}
-
-	r.Username = e
-	return nil
-}
+type Page = [ROWS_PER_PAGE]*Row
 
 type Statement struct {
 	stmnt       string
@@ -52,23 +32,76 @@ type Statement struct {
 
 type Table struct {
 	NumRows int
-	Pages   [TABLE_PAGE_CAP]Page
+	pager *Pager 
 }
 
-func NewTable() *Table {
-	var pages [TABLE_PAGE_CAP][ROWS_PER_PAGE]*Row
+type Pager struct {
+	filePointer *os.File 
+	pages [TABLE_PAGE_CAP]*Page
+	numRows int 
+}
 
-	return &Table{
-		NumRows: 0,
-		Pages:   pages,
+// end region: table structs
+
+func dbOpen(filename string) *Table {
+	p, _ := pagerOpen(filename)
+
+	numRows := p.numRows
+
+	t := &Table{
+		NumRows: numRows,
+		pager: p,
 	}
+
+	return t
+} 
+
+func pagerOpen(filename string) (*Pager, error) {
+	// open file
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var pages [TABLE_PAGE_CAP]*Page
+
+	p := &Pager{
+		filePointer: file,
+		pages: pages,
+	}
+
+	//TMP: write all data to page cache
+
+	// currently the data is a row array
+	var page Page
+	var decodedRows []*Row
+
+	decoder := gob.NewDecoder(file)
+	err = decoder.Decode(&decodedRows)
+
+	if err != nil {
+		fmt.Println("Decoding Error:", err)
+		return nil, err
+	}
+	for i := 0; i < len(decodedRows); i++ {
+		page[i] = decodedRows[i]
+	}
+
+	// we need the data to be pages
+	p.pages[0] = &page
+
+	fmt.Println("Table Loaded.")
+
+	return p, nil
 }
 
 func (t *Table) appendRow(row *Row) error {
-	targetPage := int(math.Floor(float64(t.NumRows) / float64(ROWS_PER_PAGE)))
-	pageIx := t.NumRows % ROWS_PER_PAGE
+	// _ := int(math.Floor(float64(t.NumRows) / float64(ROWS_PER_PAGE)))
+	// _ := t.NumRows % ROWS_PER_PAGE
 
-	t.Pages[targetPage][pageIx] = row
+	// t.Pages[targetPage][pageIx] = row
+	
 	t.NumRows += 1
 	return nil
 }
@@ -165,17 +198,19 @@ func executeSelect(table *Table, statement Statement, w io.Writer) error {
 		fmt.Fprintln(w, "No rows in this table")
 	}
 	for i := 0; i < table.NumRows; i++ {
-		targetPage := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
-		pageIx := i % ROWS_PER_PAGE
+		// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
+		// _ := i % ROWS_PER_PAGE
 
-		fmt.Fprintln(w, table.Pages[targetPage][pageIx])
+		// fmt.Fprintln(w, table.Pages[targetPage][pageIx])
 	}
 
 	return nil
 }
 
-func cli(reader io.Reader, writer io.Writer) {
-	theTable := NewTable()
+func cli(reader io.Reader, writer io.Writer, filename string) {
+	
+	theTable := dbOpen(filename)
+	
 	scanner := bufio.NewScanner(reader)
 
 	for {
@@ -206,5 +241,5 @@ func cli(reader io.Reader, writer io.Writer) {
 }
 
 func main() {
-	cli(os.Stdin, os.Stdout)
+	cli(os.Stdin, os.Stdout, "file123.data")
 }
