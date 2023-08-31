@@ -18,26 +18,30 @@ const TABLE_PAGE_CAP = 10
 type Page = [ROWS_PER_PAGE]*Row
 
 type Row struct {
-	id       int
-	username string
-	email    string
+	Id       int
+	Username string
+	Email    string
+}
+
+func writeToDisk(filename string, row Row) {
+
 }
 
 func (r *Row) setUsername(u string) error {
 	if len(u) > USERNAME_MAX {
-		return fmt.Errorf("maximum length of username is %d", USERNAME_MAX)
+		return fmt.Errorf("maximum length of Username is %d", USERNAME_MAX)
 	}
 
-	r.username = u
+	r.Username = u
 	return nil
 }
 
 func (r *Row) setEmail(e string) error {
 	if len(e) > EMAIL_MAX {
-		return fmt.Errorf("maximum length of username is %d", EMAIL_MAX)
+		return fmt.Errorf("maximum length of Username is %d", EMAIL_MAX)
 	}
 
-	r.username = e
+	r.Username = e
 	return nil
 }
 
@@ -108,7 +112,7 @@ func prepareStatement(cmd string) (*Statement, error) {
 
 	case "insert":
 		row := &Row{}
-		nRead, err := fmt.Sscanf(cmd_, "%d %s %s", &row.id, &row.username, &row.email)
+		nRead, err := fmt.Sscanf(cmd_, "%d %s %s", &row.Id, &row.Username, &row.Email)
 		if err != nil {
 			return nil, fmt.Errorf("I read %d things but expected 3", nRead)
 		}
