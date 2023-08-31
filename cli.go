@@ -31,34 +31,36 @@ type Statement struct {
 }
 
 type Table struct {
-	NumRows int
-	pager *Pager 
+	NumRows *int
+	pager   *Pager
 }
 
 type Pager struct {
-	filePointer *os.File 
-	pages [TABLE_PAGE_CAP]*Page
-	numRows int 
+	filePointer *os.File
+	pages       [TABLE_PAGE_CAP]*Page
+	numRows     int
 }
 
 // end region: table structs
 
 func dbOpen(filename string) *Table {
-	p, _ := pagerOpen(filename)
+	p, err := pagerOpen(filename)
 
-	numRows := p.numRows
-
+	if err != nil {
+		fmt.Println(err)
+	}
 	t := &Table{
-		NumRows: numRows,
-		pager: p,
+		NumRows: &p.numRows,
+		pager:   p,
 	}
 
 	return t
-} 
+}
 
 func pagerOpen(filename string) (*Pager, error) {
 	// open file
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	//file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	file, err := os.Open(filename)
 
 	if err != nil {
 		log.Fatal(err)
@@ -68,11 +70,11 @@ func pagerOpen(filename string) (*Pager, error) {
 
 	p := &Pager{
 		filePointer: file,
-		pages: pages,
+		pages:       pages,
+		numRows:     0,
 	}
 
 	//TMP: write all data to page cache
-
 	// currently the data is a row array
 	var page Page
 	var decodedRows []*Row
@@ -87,6 +89,7 @@ func pagerOpen(filename string) (*Pager, error) {
 	for i := 0; i < len(decodedRows); i++ {
 		page[i] = decodedRows[i]
 	}
+	p.numRows = len(decodedRows)
 
 	// we need the data to be pages
 	p.pages[0] = &page
@@ -101,8 +104,8 @@ func (t *Table) appendRow(row *Row) error {
 	// _ := t.NumRows % ROWS_PER_PAGE
 
 	// t.Pages[targetPage][pageIx] = row
-	
-	t.NumRows += 1
+
+	*t.NumRows += 1
 	return nil
 }
 
@@ -184,7 +187,7 @@ func executeStatement(table *Table, statement Statement, w io.Writer) error {
 func executeInsert(table *Table, statement Statement) error {
 	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
 
-	if table.NumRows == maxRows {
+	if *table.NumRows == maxRows {
 		return fmt.Errorf("max table row count of %d exceeded", maxRows)
 	}
 
@@ -194,10 +197,11 @@ func executeInsert(table *Table, statement Statement) error {
 }
 
 func executeSelect(table *Table, statement Statement, w io.Writer) error {
-	if table.NumRows == 0 {
+	if *table.NumRows == 0 {
 		fmt.Fprintln(w, "No rows in this table")
 	}
-	for i := 0; i < table.NumRows; i++ {
+	for i := 0; i < *table.NumRows; i++ {
+		fmt.Fprintf(w, "TODO: print row %d \n", i)
 		// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
 		// _ := i % ROWS_PER_PAGE
 
@@ -208,9 +212,9 @@ func executeSelect(table *Table, statement Statement, w io.Writer) error {
 }
 
 func cli(reader io.Reader, writer io.Writer, filename string) {
-	
+
 	theTable := dbOpen(filename)
-	
+
 	scanner := bufio.NewScanner(reader)
 
 	for {
