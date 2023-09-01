@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/gob"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -245,5 +246,8 @@ func cli(reader io.Reader, writer io.Writer, filename string) {
 }
 
 func main() {
-	cli(os.Stdin, os.Stdout, "file123.data")
+	dbpath := flag.String("dbpath", "db.data", "path to file persisting DB data")
+	flag.Parse()
+
+	cli(os.Stdin, os.Stdout, *dbpath)
 }

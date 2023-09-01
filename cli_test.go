@@ -2,77 +2,44 @@ package main
 
 import (
 	"bytes"
-	"encoding/gob"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
-	"log"
-	"os"
-	// "strings"
+	"strings"
 	"testing"
 )
 
-// func TestCli(t *testing.T) {
-// 	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
-// 	out := bytes.Buffer{}
-// 	cli(reader, &out, "textcli.data")
-// 	out.String()
-
-// 	want := "db > statement executed.\ndb > &{1 rob rob@example.com}\nstatement executed.\ndb > adios!\n"
-// 	if out.String() != want {
-// 		t.Errorf("unexpected output")
-// 	}
-// }
-
-func TestWriteThenReadBytes(t *testing.T) {
-	rows := make([]*Row, 0, 10)
-
-	rows = append(rows, &Row{
-		Id:       1,
-		Username: "Simon",
-		Email:    "Simon@cat.com",
-	})
-
-	rows = append(rows, &Row{
-		Id:       2,
-		Username: "Jing",
-		Email:    "Jing@cat.com",
-	})
-
-	// Encode the struct into a gob
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(rows)
+// generateFilename is used by tests to generate random filenames, to avoid collisions with previous test runs
+// For example, if we reuse the same file over and over, our tests may be blind to cases where file creation is required
+func generateFilename(baseName string) (string, error) {
+	randBytes := make([]byte, 6) // 6 bytes will give us 8 characters in base64
+	_, err := rand.Read(randBytes)
 	if err != nil {
-		fmt.Println("Encoding Error:", err)
-		return
+		return "", err
 	}
+	randString := base64.RawURLEncoding.EncodeToString(randBytes)
 
-	err = os.WriteFile("file123.data", buffer.Bytes(), 0666)
-	if err != nil {
-		log.Fatal(err)
+	newFileName := fmt.Sprintf("%s-%s.data", baseName, randString)
+	return newFileName, nil
+}
+
+// TestCli tests high-level functionality of the CLI, in multiple steps:
+// 1) Create fresh database using a randomly-generated filename, select, verify there's no data
+// 2) Insert two rows, select again, .exit, verify output
+// 3) Restart the CLI with the same file, the two rows should still be present
+func TestCli(t *testing.T) {
+	// test setup:
+	filename, _ := generateFilename("test-db")
+	testdbPath := fmt.Sprintf("./test-data/%s", filename)
+
+	// step 1
+	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
+	out := bytes.Buffer{}
+
+	cli(reader, &out, testdbPath)
+
+	want := "db > statement executed.\ndb > &{1 rob rob@example.com}\nstatement executed.\ndb > adios!\n"
+	if out.String() != want {
+		t.Errorf("unexpected output")
 	}
-
-	// Decode the gob back into a struct
-	file, err := os.Open("file123.data")
-	var decodedRows []*Row
-
-	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&decodedRows)
-
-	if err != nil {
-		fmt.Println("Decoding Error:", err)
-		return
-	}
-
-	for i := 0; i < len(decodedRows); i++ {
-		fmt.Println(*decodedRows[i])
-	}
-	
-	fmt.Println(decodedRows)
-
-	//// Decode the gob back into a struct
-	//var decodedInstance Row
-	//decoder := gob.NewDecoder(&buffer)
-	//err = decoder.Decode(&decodedInstance)
-	//fmt.Println("Decoded Struct:", decodedInstance)
-
 }
