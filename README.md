@@ -2,3 +2,4 @@ A toy database following this [blog](https://cstack.github.io/db_tutorial/), [re
 
 TODO:
 [] refactor to deal w/ cases where a new value is inserted with the same key as an existing row
+[] merge in tests; writer

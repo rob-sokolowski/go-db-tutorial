@@ -4,14 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	// "math"
 	"os"
 	"strings"
 )
-
-// begin region: table structs
-
-// const TABLE_ROW_CAP
 
 type Row struct {
 	id       int
@@ -23,8 +18,6 @@ type Statement struct {
 	stmnt       string
 	rowToInsert *Row
 }
-// end region: table structs
-
 
 func validateMetaCommand(cmd string) error {
 	switch cmd {
@@ -36,7 +29,7 @@ func validateMetaCommand(cmd string) error {
 
 // doMetaCommand does the meta command, and returns a boolean value you can think of as "shouldQuit".
 // It is the responsibility of the caller to handle graceful quiting. While an os.Exit(0) can be done here
-// it has ramification on unit tests, as it closes the tests themselves!
+// it has ramifications on unit tests, as it closes the tests themselves!
 func doMetaCommand(cmd string) bool {
 	switch cmd {
 	// Note: the meta command ".exit" is handled outside
