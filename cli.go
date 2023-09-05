@@ -4,18 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"math"
+	// "math"
 	"os"
 	"strings"
 )
 
 // begin region: table structs
-const USERNAME_MAX = 32
-const EMAIL_MAX = 255
-const ROWS_PER_PAGE = 3
-const TABLE_PAGE_CAP = 10
 
-type Page = [ROWS_PER_PAGE]*Row
+// const TABLE_ROW_CAP
 
 type Row struct {
 	id       int
@@ -23,60 +19,18 @@ type Row struct {
 	email    string
 }
 
-func (r *Row) setUsername(u string) error {
-	if len(u) > USERNAME_MAX {
-		return fmt.Errorf("maximum length of username is %d", USERNAME_MAX)
-	}
-
-	r.username = u
-	return nil
-}
-
-func (r *Row) setEmail(e string) error {
-	if len(e) > EMAIL_MAX {
-		return fmt.Errorf("maximum length of username is %d", EMAIL_MAX)
-	}
-
-	r.username = e
-	return nil
-}
-
 type Statement struct {
 	stmnt       string
 	rowToInsert *Row
 }
-
-type Table struct {
-	NumRows int
-	Pages   [TABLE_PAGE_CAP]Page
-}
-
-func NewTable() *Table {
-	var pages [TABLE_PAGE_CAP][ROWS_PER_PAGE]*Row
-
-	return &Table{
-		NumRows: 0,
-		Pages:   pages,
-	}
-}
-
-func (t *Table) appendRow(row *Row) error {
-	targetPage := int(math.Floor(float64(t.NumRows) / float64(ROWS_PER_PAGE)))
-	pageIx := t.NumRows % ROWS_PER_PAGE
-
-	t.Pages[targetPage][pageIx] = row
-	t.NumRows += 1
-	return nil
-}
-
 // end region: table structs
+
 
 func validateMetaCommand(cmd string) error {
 	switch cmd {
 	case ".exit":
 		return nil
 	}
-
 	return fmt.Errorf("unrecognized meta command: %s", cmd)
 }
 
@@ -124,17 +78,17 @@ func prepareStatement(cmd string) (*Statement, error) {
 	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func executeStatement(table *Table, statement Statement) error {
+func executeStatement(t map[int]Row, statement Statement) error {
 	switch statement.stmnt {
 	case "select":
-		err := executeSelect(table, statement)
+		err := executeSelect(t, statement)
 		if err != nil {
 			fmt.Errorf("cannot execute select")
 			return err
 		}
 
 	case "insert":
-		err := executeInsert(table, statement)
+		err := executeInsert(t, statement)
 		if err != nil {
 			fmt.Errorf("cannot execute insert: %s", err)
 			return err
@@ -144,34 +98,37 @@ func executeStatement(table *Table, statement Statement) error {
 	return nil
 }
 
-func executeInsert(table *Table, statement Statement) error {
-	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
+func executeInsert(t map[int]Row, statement Statement) error {
+	maxRows := 1000 // arbitrarily assigning for now
 
-	if table.NumRows == maxRows {
+	if len(t) == maxRows {
+		// throw an error for now
 		return fmt.Errorf("max table row count of %d exceeded", maxRows)
 	}
 
-	table.appendRow(statement.rowToInsert)
+	row := *statement.rowToInsert
 
+	_ , exists := t[row.id]
+
+	if !exists {
+		t[row.id] = row
+	}
 	return nil
 }
 
-func executeSelect(table *Table, statement Statement) error {
-	if table.NumRows == 0 {
+func executeSelect(t map[int]Row, statement Statement) error {
+	if len(t) == 0 {
 		fmt.Println("No rows in this table")
 	}
-	for i := 0; i < table.NumRows; i++ {
-		targetPage := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
-		pageIx := i % ROWS_PER_PAGE
-
-		fmt.Println(table.Pages[targetPage][pageIx])
+	for _, v := range t {
+		fmt.Println(v)
 	}
 
 	return nil
 }
 
 func cli(reader io.Reader, writer io.Writer) {
-	theTable := NewTable()
+	theTable := make(map[int]Row) // create a memtable 
 	scanner := bufio.NewScanner(reader)
 
 	for {
