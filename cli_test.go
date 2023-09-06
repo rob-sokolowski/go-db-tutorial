@@ -29,14 +29,17 @@ func generateFilename(baseName string) (string, error) {
 // 3) Restart the CLI with the same file, the two rows should still be present
 func TestCli(t *testing.T) {
 	// test setup:
-	filename, _ := generateFilename("test-db")
+	filename, err := generateFilename("test-db")
+	if err != nil {
+		t.Fatalf("could not create test filename %s", err)
+	}
 	testdbPath := fmt.Sprintf("./test-data/%s", filename)
 
 	// step 1
 	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
 	out := bytes.Buffer{}
 
-	cli(reader, &out, testdbPath)
+	Cli(reader, &out, testdbPath)
 
 	want := "db > statement executed.\ndb > &{1 rob rob@example.com}\nstatement executed.\ndb > adios!\n"
 	if out.String() != want {
