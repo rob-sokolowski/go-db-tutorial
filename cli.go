@@ -44,12 +44,12 @@ func validateMetaCommand(cmd string) error {
 
 // doMetaCommand does the meta command, and returns a boolean value you can think of as "shouldQuit".
 // It is the responsibility of the caller to handle graceful quiting. While an os.Exit(0) can be done here
-// it has ramifications on unit tests, as it closes the tests themselves!
-func doMetaCommand(cmd string) bool {
+// it has ramification on unit tests, as it closes the tests themselves!
+func doMetaCommand(cmd string, w io.Writer) bool {
 	switch cmd {
 	// Note: the meta command ".exit" is handled outside
 	case ".exit":
-		fmt.Println("adios!")
+		fmt.Fprintln(w, "adios!")
 		return true
 	}
 
@@ -86,10 +86,12 @@ func prepareStatement(cmd string) (*Statement, error) {
 	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func executeStatement(t *Table, statement Statement) error {
+
+func executeStatement(t map[int]Row, statement Statement, w io.Writer) error {
 	switch statement.stmnt {
 	case "select":
-		err := executeSelect(t, statement)
+		err := executeSelect(t, statement, w)
+
 		if err != nil {
 			fmt.Errorf("cannot execute select")
 			return err
@@ -102,7 +104,7 @@ func executeStatement(t *Table, statement Statement) error {
 			return err
 		}
 	}
-
+	fmt.Fprintln(w, "statement executed.")
 	return nil
 }
 
@@ -128,7 +130,8 @@ func executeInsert(t *Table, statement Statement) error {
 	return nil
 }
 
-func executeSelect(t *Table, statement Statement) error {
+
+func executeSelect(t map[int]Row, statement Statement, w io.Writer) error {
 	if t.numRows == 0 {
 		fmt.Println("No rows in this table")
 	}
@@ -158,7 +161,7 @@ func cli(reader io.Reader, writer io.Writer) {
 				fmt.Fprintln(writer, err)
 				continue
 			}
-			if doMetaCommand(input) {
+			if doMetaCommand(input, writer) {
 				// we've received a true value for "shouldQuit"
 				break
 			}
@@ -170,7 +173,7 @@ func cli(reader io.Reader, writer io.Writer) {
 			fmt.Fprintln(writer, err)
 			continue
 		}
-		executeStatement(theTable, *statement)
+		executeStatement(theTable, *statement, writer)
 	}
 }
 
