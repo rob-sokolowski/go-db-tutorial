@@ -1,5 +1,16 @@
 A toy database following this [blog](https://cstack.github.io/db_tutorial/), [repo](https://github.com/cstack/db_tutorial/tree/master/_parts)
 
 TODO:
-[] refactor to deal w/ cases where a new value is inserted with the same key as an existing row
-[] merge in tests; writer
+
+[x] refactor table to be a redblacktree
+	[x] update the value when a new val is inserted
+	[] read all values on select
+
+
+[] Create an SSTable [interface?] that can:
+	[] look up the value associated with a key
+	[] iterate over all key/val pairs in a specific range
+	[] maintain an order for keys
+	[] insert new keys
+	[] replace values for existing keys
+
