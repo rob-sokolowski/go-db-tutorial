@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	// "redblacktree"
 	"strings"
 )
 
@@ -100,12 +101,9 @@ func executeInsert(t map[int]Row, statement Statement) error {
 	}
 
 	row := *statement.rowToInsert
+	// either creates a new id in table or updates existing value for that key
+	t[row.id] = row
 
-	_ , exists := t[row.id]
-
-	if !exists {
-		t[row.id] = row
-	}
 	return nil
 }
 
@@ -121,7 +119,9 @@ func executeSelect(t map[int]Row, statement Statement) error {
 }
 
 func cli(reader io.Reader, writer io.Writer) {
+	
 	theTable := make(map[int]Row) // create a memtable 
+	
 	scanner := bufio.NewScanner(reader)
 
 	for {
