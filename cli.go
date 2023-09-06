@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	// "redblacktree"
 	"strings"
+	"github.com/emirpasic/gods/trees/redblacktree"
 )
 
 type Row struct {
@@ -18,6 +18,20 @@ type Row struct {
 type Statement struct {
 	stmnt       string
 	rowToInsert *Row
+}
+
+type Table struct {
+    tree *redblacktree.Tree
+    numRows int 
+}
+
+func NewTable() *Table {
+	t := &Table{
+		tree: redblacktree.NewWithIntComparator(), // Q: other options?
+		numRows: 0,
+	}
+
+	return t
 }
 
 func validateMetaCommand(cmd string) error {
@@ -72,7 +86,7 @@ func prepareStatement(cmd string) (*Statement, error) {
 	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func executeStatement(t map[int]Row, statement Statement) error {
+func executeStatement(t *Table, statement Statement) error {
 	switch statement.stmnt {
 	case "select":
 		err := executeSelect(t, statement)
@@ -92,27 +106,36 @@ func executeStatement(t map[int]Row, statement Statement) error {
 	return nil
 }
 
-func executeInsert(t map[int]Row, statement Statement) error {
+func executeInsert(t *Table, statement Statement) error {
 	maxRows := 1000 // arbitrarily assigning for now
 
-	if len(t) == maxRows {
+
+	if t.numRows == maxRows {
 		// throw an error for now
 		return fmt.Errorf("max table row count of %d exceeded", maxRows)
 	}
 
 	row := *statement.rowToInsert
-	// either creates a new id in table or updates existing value for that key
-	t[row.id] = row
+
+	// update row value and numRows
+	_, exists := t.tree.Get(row.id)
+	if !exists {
+		t.numRows++
+	}
+
+	t.tree.Put(row.id, row)
 
 	return nil
 }
 
-func executeSelect(t map[int]Row, statement Statement) error {
-	if len(t) == 0 {
+func executeSelect(t *Table, statement Statement) error {
+	if t.numRows == 0 {
 		fmt.Println("No rows in this table")
 	}
-	for _, v := range t {
-		fmt.Println(v)
+
+	rows := t.tree.Values()
+	for _, row := range rows {
+		fmt.Println(row)
 	}
 
 	return nil
@@ -120,7 +143,7 @@ func executeSelect(t map[int]Row, statement Statement) error {
 
 func cli(reader io.Reader, writer io.Writer) {
 	
-	theTable := make(map[int]Row) // create a memtable 
+	theTable := NewTable()
 	
 	scanner := bufio.NewScanner(reader)
 

@@ -2,8 +2,9 @@ A toy database following this [blog](https://cstack.github.io/db_tutorial/), [re
 
 TODO:
 
-[] refactor table to be a redblacktree
+[x] refactor table to be a redblacktree
 	[x] update the value when a new val is inserted
+	[] read all values on select
 
 
 [] Create an SSTable [interface?] that can:
