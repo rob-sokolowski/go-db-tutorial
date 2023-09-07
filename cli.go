@@ -2,74 +2,71 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
+	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
+	"github.com/rob-sokolowski/go-db-tutorial/tinydb/naivetable"
+	"github.com/rob-sokolowski/go-db-tutorial/tinydb/sstable"
 	"io"
-	"math"
+	"log"
 	"os"
 	"strings"
 )
 
-// begin region: table structs
-const USERNAME_MAX = 32
-const EMAIL_MAX = 255
-const ROWS_PER_PAGE = 3
-const TABLE_PAGE_CAP = 10
+func main() {
+	dbpath := flag.String("dbpath", "db.data", "path to file persisting DB data")
+	tableType := flag.String("tableType", "SSTable", "type of table")
+	flag.Parse()
 
-type Page = [ROWS_PER_PAGE]*Row
-
-type Row struct {
-	id       int
-	username string
-	email    string
+	Cli(os.Stdin, os.Stdout, *dbpath, *tableType)
 }
 
-func (r *Row) setUsername(u string) error {
-	if len(u) > USERNAME_MAX {
-		return fmt.Errorf("maximum length of username is %d", USERNAME_MAX)
+func Cli(reader io.Reader, writer io.Writer, filename string, tableType string) error {
+	var t tinydb.DbTable
+	var err error
+
+	switch {
+	case tableType == "NaiveTable":
+		t, err = naivetable.NewNaiveTable(filename)
+	// TODO add more here
+	case tableType == "SSTable":
+		t, err = sstable.NewSSTable()
+	default:
+		return fmt.Errorf("Unknown table type %s", tableType)
 	}
 
-	r.username = u
-	return nil
-}
-
-func (r *Row) setEmail(e string) error {
-	if len(e) > EMAIL_MAX {
-		return fmt.Errorf("maximum length of username is %d", EMAIL_MAX)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	r.username = e
-	return nil
-}
+	scanner := bufio.NewScanner(reader)
+	for {
+		fmt.Fprint(writer, "db > ")
+		scanner.Scan()
+		input := scanner.Text()
 
-type Statement struct {
-	stmnt       string
-	rowToInsert *Row
-}
+		if len(input) > 0 && input[0] == '.' {
+			err := validateMetaCommand(input)
+			if err != nil {
+				fmt.Fprintln(writer, err)
+				continue
+			}
+			if doMetaCommand(input, writer) {
+				// we've received a true value for "shouldQuit"
+				break
+			}
+			continue
+		}
 
-type Table struct {
-	NumRows int
-	Pages   [TABLE_PAGE_CAP]Page
-}
-
-func NewTable() *Table {
-	var pages [TABLE_PAGE_CAP][ROWS_PER_PAGE]*Row
-
-	return &Table{
-		NumRows: 0,
-		Pages:   pages,
+		statement, err := prepareStatement(input)
+		if err != nil {
+			fmt.Fprintln(writer, err)
+			continue
+		}
+		executeStatement(t, *statement, writer)
 	}
-}
-
-func (t *Table) appendRow(row *Row) error {
-	targetPage := int(math.Floor(float64(t.NumRows) / float64(ROWS_PER_PAGE)))
-	pageIx := t.NumRows % ROWS_PER_PAGE
-
-	t.Pages[targetPage][pageIx] = row
-	t.NumRows += 1
 	return nil
 }
-
-// end region: table structs
 
 func validateMetaCommand(cmd string) error {
 	switch cmd {
@@ -94,28 +91,28 @@ func doMetaCommand(cmd string, w io.Writer) bool {
 	return false
 }
 
-func prepareStatement(cmd string) (*Statement, error) {
+func prepareStatement(cmd string) (*tinydb.Statement, error) {
 	args := strings.Split(cmd, " ")
 	cmd_ := strings.Join(args[1:], " ")
 	switch args[0] {
 	case "select":
-		statement := &Statement{
-			stmnt:       "select",
-			rowToInsert: nil,
+		statement := &tinydb.Statement{
+			Stmnt:       "select",
+			RowToInsert: nil,
 		}
 
 		return statement, nil
 
 	case "insert":
-		row := &Row{}
-		nRead, err := fmt.Sscanf(cmd_, "%d %s %s", &row.id, &row.username, &row.email)
+		row := &tinydb.Row{}
+		nRead, err := fmt.Sscanf(cmd_, "%d %s %s", &row.Id, &row.Username, &row.Email)
 		if err != nil {
 			return nil, fmt.Errorf("I read %d things but expected 3", nRead)
 		}
 
-		statement := &Statement{
-			stmnt:       "insert",
-			rowToInsert: row,
+		statement := &tinydb.Statement{
+			Stmnt:       "insert",
+			RowToInsert: row,
 		}
 
 		return statement, nil
@@ -124,17 +121,17 @@ func prepareStatement(cmd string) (*Statement, error) {
 	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func executeStatement(table *Table, statement Statement, w io.Writer) error {
-	switch statement.stmnt {
+func executeStatement(table tinydb.DbTable, statement tinydb.Statement, w io.Writer) error {
+	switch statement.Stmnt {
 	case "select":
-		err := executeSelect(table, statement, w)
+		err := table.ExecuteSelect(statement, w)
 		if err != nil {
 			fmt.Errorf("cannot execute select")
 			return err
 		}
 
 	case "insert":
-		err := executeInsert(table, statement)
+		err := table.ExecuteInsert(statement, w)
 		if err != nil {
 			fmt.Errorf("cannot execute insert: %s", err)
 			return err
@@ -144,63 +141,14 @@ func executeStatement(table *Table, statement Statement, w io.Writer) error {
 	return nil
 }
 
-func executeInsert(table *Table, statement Statement) error {
-	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
-
-	if table.NumRows == maxRows {
-		return fmt.Errorf("max table row count of %d exceeded", maxRows)
-	}
-
-	table.appendRow(statement.rowToInsert)
-
-	return nil
-}
-
-func executeSelect(table *Table, statement Statement, w io.Writer) error {
-	if table.NumRows == 0 {
-		fmt.Fprintln(w, "No rows in this table")
-	}
-	for i := 0; i < table.NumRows; i++ {
-		targetPage := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
-		pageIx := i % ROWS_PER_PAGE
-
-		fmt.Fprintln(w, table.Pages[targetPage][pageIx])
-	}
-
-	return nil
-}
-
-func cli(reader io.Reader, writer io.Writer) {
-	theTable := NewTable()
-	scanner := bufio.NewScanner(reader)
-
-	for {
-		fmt.Fprint(writer, "db > ")
-		scanner.Scan()
-		input := scanner.Text()
-
-		if len(input) > 0 && input[0] == '.' {
-			err := validateMetaCommand(input)
-			if err != nil {
-				fmt.Fprintln(writer, err)
-				continue
-			}
-			if doMetaCommand(input, writer) {
-				// we've received a true value for "shouldQuit"
-				break
-			}
-			continue
-		}
-
-		statement, err := prepareStatement(input)
-		if err != nil {
-			fmt.Fprintln(writer, err)
-			continue
-		}
-		executeStatement(theTable, *statement, writer)
-	}
-}
-
-func main() {
-	cli(os.Stdin, os.Stdout)
-}
+//func executeInsert(table *tinydb.NaiveTable, statement tinydb.Statement) error {
+//	maxRows := tinydb.TABLE_PAGE_CAP * tinydb.ROWS_PER_PAGE
+//
+//	if *table.NumRows == maxRows {
+//		return fmt.Errorf("max table row count of %d exceeded", maxRows)
+//	}
+//
+//	table.AppendRow(statement.RowToInsert)
+//
+//	return nil
+//}

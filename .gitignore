@@ -1,3 +1,9 @@
+go-db-tutorial
+go-db-tutorial.exe
+db.data
 
+# don't commit test files (but do keep the folder)
+test-data/
 
+# IntelliJ IDE data
 .idea/
