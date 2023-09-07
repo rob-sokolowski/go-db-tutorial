@@ -6,6 +6,7 @@ import (
 	"io"
 	"encoding/gob"
 	"log"
+	"math"
 	"os"
 )
 
@@ -29,7 +30,7 @@ type NaiveTable struct {
 
 func NewNaiveTable(filename string) (NaiveTable, error) {
 	p, err := pagerOpen(filename)
-	t:= NaiveTable {}
+	t := NaiveTable {}
 	
 	if err != nil {
 		fmt.Println(err)
@@ -83,27 +84,41 @@ func pagerOpen(filename string) (*Pager, error) {
 	return p, nil
 }
 
-func (NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
-	//if *table.NumRows == 0 {
-	//	fmt.Fprintln(w, "No rows in this table")
-	//}
-	//for i := 0; i < *table.NumRows; i++ {
-	//	fmt.Fprintf(w, "TODO: print row %d \n", i)
-	//	// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
-	//	// _ := i % ROWS_PER_PAGE
-	//
-	//	// fmt.Fprintln(w, table.Pages[targetPage][pageIx])
-	//}
-
-	fmt.Fprintln(w, "NaiveTable.ExecuteSelect()")
-	fmt.Fprintln(w, statement)
+func (table NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
+	if *table.NumRows == 0 {
+		fmt.Fprintln(w, "No rows in this table")
+	}
+	for i := 0; i < *table.NumRows; i++ {
+		fmt.Fprintf(w, "TODO: print row %d \n", i)
+		// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
+		// _ := i % ROWS_PER_PAGE
+	
+		// fmt.Fprintln(w, table.Pages[targetPage][pageIx])
+	}
 
 	return nil
 }
 
-func (NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
-	fmt.Fprintln(w, "NaiveTable.ExecuteInsert()")
-	fmt.Fprintln(w, statement)
+func (t NaiveTable) appendRow(row *tinydb.Row) error {
+	targetPage := int(math.Floor(float64(*t.NumRows) / float64(ROWS_PER_PAGE)))
+	pageIx := *t.NumRows % ROWS_PER_PAGE
+
+
+	t.pager.pages[targetPage][pageIx] = row
+
+	*t.NumRows += 1
+	return nil
+}
+
+
+func (table NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
+	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
+
+	if *table.NumRows == maxRows {
+		return fmt.Errorf("max table row count of %d exceeded", maxRows)
+	}
+
+	table.appendRow(statement.RowToInsert)
 
 	return nil
 }
