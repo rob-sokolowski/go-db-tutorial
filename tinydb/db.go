@@ -3,6 +3,7 @@ package tinydb
 import (
 	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"os"
 )
@@ -26,10 +27,14 @@ type Statement struct {
 	RowToInsert *Row
 }
 
-type Table struct {
-	NumRows *int
-	pager   *Pager
+type DbTable interface {
+	//NewTable(filename string) (*DbTable, error)
+	ExecuteSelect(statement Statement, w io.Writer) error
+	ExecuteInsert(statement Statement, w io.Writer) error
+	//Close()
 }
+
+// begin region: NaiveTable implementation
 
 type Pager struct {
 	filePointer *os.File
@@ -39,20 +44,26 @@ type Pager struct {
 
 // end region: table structs
 
-func DbOpen(filename string) (*Table, error) {
-	p, err := pagerOpen(filename)
-
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-	t := &Table{
-		NumRows: &p.numRows,
-		pager:   p,
-	}
-
-	return t, nil
-}
+//func DbOpen(filename string, tableType string) (*DbTable, error) {
+//	p, err := pagerOpen(filename)
+//
+//	if err != nil {
+//		fmt.Println(err)
+//		return nil, err
+//	}
+//	switch {
+//	case tableType == "NaiveTable":
+//		t := &NaiveTable{
+//			NumRows: &p.numRows,
+//			pager:   p,
+//		}
+//
+//		return t, nil
+//	}
+//
+//	return nil, fmt.Errorf("Unknown table type %s", tableType)
+//
+//}
 
 func pagerOpen(filename string) (*Pager, error) {
 	// open file
@@ -80,7 +91,7 @@ func pagerOpen(filename string) (*Pager, error) {
 
 	if err != nil {
 		fmt.Println("Decoding Error:", err)
-		return nil, err
+		return p, nil
 	}
 	for i := 0; i < len(decodedRows); i++ {
 		page[i] = decodedRows[i]
@@ -90,19 +101,9 @@ func pagerOpen(filename string) (*Pager, error) {
 	// we need the data to be pages
 	p.pages[0] = &page
 
-	fmt.Println("Table Loaded.")
+	fmt.Println("NaiveTable Loaded.")
 
 	return p, nil
-}
-
-func (t *Table) AppendRow(row *Row) error {
-	// _ := int(math.Floor(float64(t.NumRows) / float64(ROWS_PER_PAGE)))
-	// _ := t.NumRows % ROWS_PER_PAGE
-
-	// t.Pages[targetPage][pageIx] = row
-
-	*t.NumRows += 1
-	return nil
 }
 
 // end region: table structs

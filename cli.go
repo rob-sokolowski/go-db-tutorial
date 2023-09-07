@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
+	"github.com/rob-sokolowski/go-db-tutorial/tinydb/naivetable"
 	"io"
 	"log"
 	"os"
@@ -19,7 +20,7 @@ func main() {
 }
 
 func Cli(reader io.Reader, writer io.Writer, filename string) {
-	theTable, err := tinydb.DbOpen(filename)
+	theTable, err := naivetable.NewNaiveTable()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -105,17 +106,17 @@ func prepareStatement(cmd string) (*tinydb.Statement, error) {
 	return nil, fmt.Errorf("unrecognized statement: %s", cmd)
 }
 
-func executeStatement(table *tinydb.Table, statement tinydb.Statement, w io.Writer) error {
+func executeStatement(table tinydb.DbTable, statement tinydb.Statement, w io.Writer) error {
 	switch statement.Stmnt {
 	case "select":
-		err := executeSelect(table, statement, w)
+		err := table.ExecuteSelect(statement, w)
 		if err != nil {
 			fmt.Errorf("cannot execute select")
 			return err
 		}
 
 	case "insert":
-		err := executeInsert(table, statement)
+		err := table.ExecuteInsert(statement, w)
 		if err != nil {
 			fmt.Errorf("cannot execute insert: %s", err)
 			return err
@@ -125,29 +126,14 @@ func executeStatement(table *tinydb.Table, statement tinydb.Statement, w io.Writ
 	return nil
 }
 
-func executeInsert(table *tinydb.Table, statement tinydb.Statement) error {
-	maxRows := tinydb.TABLE_PAGE_CAP * tinydb.ROWS_PER_PAGE
-
-	if *table.NumRows == maxRows {
-		return fmt.Errorf("max table row count of %d exceeded", maxRows)
-	}
-
-	table.AppendRow(statement.RowToInsert)
-
-	return nil
-}
-
-func executeSelect(table *tinydb.Table, statement tinydb.Statement, w io.Writer) error {
-	if *table.NumRows == 0 {
-		fmt.Fprintln(w, "No rows in this table")
-	}
-	for i := 0; i < *table.NumRows; i++ {
-		fmt.Fprintf(w, "TODO: print row %d \n", i)
-		// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
-		// _ := i % ROWS_PER_PAGE
-
-		// fmt.Fprintln(w, table.Pages[targetPage][pageIx])
-	}
-
-	return nil
-}
+//func executeInsert(table *tinydb.NaiveTable, statement tinydb.Statement) error {
+//	maxRows := tinydb.TABLE_PAGE_CAP * tinydb.ROWS_PER_PAGE
+//
+//	if *table.NumRows == maxRows {
+//		return fmt.Errorf("max table row count of %d exceeded", maxRows)
+//	}
+//
+//	table.AppendRow(statement.RowToInsert)
+//
+//	return nil
+//}
