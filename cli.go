@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb/naivetable"
+	"github.com/rob-sokolowski/go-db-tutorial/tinydb/sstable"
 	"io"
 	"log"
 	"os"
@@ -14,7 +15,7 @@ import (
 
 func main() {
 	dbpath := flag.String("dbpath", "db.data", "path to file persisting DB data")
-	tableType := flag.String("tableType", "NaiveTable", "type of table")
+	tableType := flag.String("tableType", "SSTable", "type of table")
 	flag.Parse()
 
 	Cli(os.Stdin, os.Stdout, *dbpath, *tableType)
@@ -28,6 +29,8 @@ func Cli(reader io.Reader, writer io.Writer, filename string, tableType string) 
 	case tableType == "NaiveTable":
 		t, err = naivetable.NewNaiveTable(filename)
 	// TODO add more here
+	case tableType == "SSTable":
+		t, err = sstable.NewSSTable()
 	default:
 		return fmt.Errorf("Unknown table type %s", tableType)
 	}

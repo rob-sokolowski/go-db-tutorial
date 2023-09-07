@@ -18,11 +18,4 @@ type Statement struct {
 type DbTable interface {
 	ExecuteSelect(statement Statement, w io.Writer) error
 	ExecuteInsert(statement Statement, w io.Writer) error
-	//Close()
 }
-
-
-
-// func DbOpen(filename string, tableType string) (*DbTable, error) {
-
-

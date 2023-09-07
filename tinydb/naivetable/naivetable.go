@@ -1,10 +1,10 @@
 package naivetable
 
 import (
+	"encoding/gob"
 	"fmt"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"io"
-	"encoding/gob"
 	"log"
 	"math"
 	"os"
@@ -26,20 +26,21 @@ type NaiveTable struct {
 	NumRows *int
 	pager   *Pager
 }
+
 // end region: table structs
 
-func NewNaiveTable(filename string) (NaiveTable, error) {
+func NewNaiveTable(filename string) (*NaiveTable, error) {
 	p, err := pagerOpen(filename)
-	t := NaiveTable {}
-	
+	t := &NaiveTable{
+		NumRows: &p.numRows,
+		pager:   p,
+	}
+
 	if err != nil {
 		fmt.Println(err)
 		return t, err
 	}
 
-	t.NumRows = &p.numRows
-	t.pager = p
-	
 	return t, nil
 }
 
@@ -92,7 +93,7 @@ func (table NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) e
 		fmt.Fprintf(w, "TODO: print row %d \n", i)
 		// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
 		// _ := i % ROWS_PER_PAGE
-	
+
 		// fmt.Fprintln(w, table.Pages[targetPage][pageIx])
 	}
 
@@ -103,13 +104,12 @@ func (t NaiveTable) appendRow(row *tinydb.Row) error {
 	targetPage := int(math.Floor(float64(*t.NumRows) / float64(ROWS_PER_PAGE)))
 	pageIx := *t.NumRows % ROWS_PER_PAGE
 
-
+	// TODO: nil pointer exception is being thrown here, debug!
 	t.pager.pages[targetPage][pageIx] = row
 
 	*t.NumRows += 1
 	return nil
 }
-
 
 func (table NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
