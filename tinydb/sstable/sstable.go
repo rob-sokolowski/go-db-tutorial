@@ -31,7 +31,7 @@ func (t SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 
 	row := *statement.RowToInsert
 
-	// update row value and numRows
+	// see if we need to update numRows
 	_, exists := t.tree.Get(row.Id)
 	if !exists {
 		t.numRows++

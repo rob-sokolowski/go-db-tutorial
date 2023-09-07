@@ -10,7 +10,6 @@ import (
 	"os"
 )
 
-// begin region: NaiveTable implementation
 const ROWS_PER_PAGE = 3
 const TABLE_PAGE_CAP = 10
 
@@ -23,16 +22,14 @@ type Pager struct {
 }
 
 type NaiveTable struct {
-	NumRows *int
+	numRows *int
 	pager   *Pager
 }
-
-// end region: table structs
 
 func NewNaiveTable(filename string) (*NaiveTable, error) {
 	p, err := pagerOpen(filename)
 	t := &NaiveTable{
-		NumRows: &p.numRows,
+		numRows: &p.numRows,
 		pager:   p,
 	}
 
@@ -60,8 +57,7 @@ func pagerOpen(filename string) (*Pager, error) {
 		numRows:     0,
 	}
 
-	//TMP: write all data to page cache
-	// currently the data is a row array
+	// TMP: write all data to page cache
 	var page Page
 	var decodedRows []*tinydb.Row
 
@@ -85,40 +81,40 @@ func pagerOpen(filename string) (*Pager, error) {
 	return p, nil
 }
 
-func (table NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
-	if *table.NumRows == 0 {
+func (t NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
+	if *t.numRows == 0 {
 		fmt.Fprintln(w, "No rows in this table")
 	}
-	for i := 0; i < *table.NumRows; i++ {
+	for i := 0; i < *t.numRows; i++ {
 		fmt.Fprintf(w, "TODO: print row %d \n", i)
 		// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
 		// _ := i % ROWS_PER_PAGE
 
-		// fmt.Fprintln(w, table.Pages[targetPage][pageIx])
+		// fmt.Fprintln(w, t.Pages[targetPage][pageIx])
 	}
 
 	return nil
 }
 
 func (t NaiveTable) appendRow(row *tinydb.Row) error {
-	targetPage := int(math.Floor(float64(*t.NumRows) / float64(ROWS_PER_PAGE)))
-	pageIx := *t.NumRows % ROWS_PER_PAGE
+	targetPage := int(math.Floor(float64(*t.numRows) / float64(ROWS_PER_PAGE)))
+	pageIx := *t.numRows % ROWS_PER_PAGE
 
 	// TODO: nil pointer exception is being thrown here, debug!
 	t.pager.pages[targetPage][pageIx] = row
 
-	*t.NumRows += 1
+	*t.numRows += 1
 	return nil
 }
 
-func (table NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
+func (t NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
 
-	if *table.NumRows == maxRows {
+	if *t.numRows == maxRows {
 		return fmt.Errorf("max table row count of %d exceeded", maxRows)
 	}
 
-	table.appendRow(statement.RowToInsert)
+	t.appendRow(statement.RowToInsert)
 
 	return nil
 }
