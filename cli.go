@@ -14,13 +14,24 @@ import (
 
 func main() {
 	dbpath := flag.String("dbpath", "db.data", "path to file persisting DB data")
+	tableType := flag.String("tableType", "NaiveTable", "type of table")
 	flag.Parse()
 
-	Cli(os.Stdin, os.Stdout, *dbpath)
+	Cli(os.Stdin, os.Stdout, *dbpath, *tableType)
 }
 
-func Cli(reader io.Reader, writer io.Writer, filename string) {
-	theTable, err := naivetable.NewNaiveTable()
+func Cli(reader io.Reader, writer io.Writer, filename string, tableType string) error {
+	var t tinydb.DbTable
+	var err error
+
+	switch {
+	case tableType == "NaiveTable":
+		t, err = naivetable.NewNaiveTable(filename)
+	// TODO add more here
+	default:
+		return fmt.Errorf("Unknown table type %s", tableType)
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,8 +60,9 @@ func Cli(reader io.Reader, writer io.Writer, filename string) {
 			fmt.Fprintln(writer, err)
 			continue
 		}
-		executeStatement(theTable, *statement, writer)
+		executeStatement(t, *statement, writer)
 	}
+	return nil
 }
 
 func validateMetaCommand(cmd string) error {
