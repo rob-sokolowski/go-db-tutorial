@@ -18,7 +18,7 @@ type Page = [ROWS_PER_PAGE]*tinydb.Row
 
 type Pager struct {
 	filePointer *os.File
-	pages       [TABLE_PAGE_CAP]*Page
+	pages       [TABLE_PAGE_CAP]Page
 	numRows     int
 }
 
@@ -52,7 +52,7 @@ func pagerOpen(filename string) (*Pager, error) {
 		return nil, err
 	}
 
-	var pages [TABLE_PAGE_CAP]*Page
+	var pages [TABLE_PAGE_CAP]Page
 
 	p := &Pager{
 		filePointer: file,
@@ -78,7 +78,7 @@ func pagerOpen(filename string) (*Pager, error) {
 	p.numRows = len(decodedRows)
 
 	// we need the data to be pages
-	p.pages[0] = &page
+	p.pages[0] = page
 
 	fmt.Println("NaiveTable Loaded.")
 
