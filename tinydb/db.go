@@ -1,8 +1,6 @@
 package tinydb
 
-import (
-	"io"
-)
+import "io"
 
 type Row struct {
 	Id       int
