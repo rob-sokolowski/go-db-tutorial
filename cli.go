@@ -28,7 +28,6 @@ func Cli(reader io.Reader, writer io.Writer, filename string, tableType string) 
 	switch {
 	case tableType == "NaiveTable":
 		t, err = naivetable.NewNaiveTable(filename)
-	// TODO add more here
 	case tableType == "SSTable":
 		t, err = sstable.NewSSTable()
 	default:
@@ -140,15 +139,3 @@ func executeStatement(table tinydb.DbTable, statement tinydb.Statement, w io.Wri
 	fmt.Fprintln(w, "statement executed.")
 	return nil
 }
-
-//func executeInsert(table *tinydb.NaiveTable, statement tinydb.Statement) error {
-//	maxRows := tinydb.TABLE_PAGE_CAP * tinydb.ROWS_PER_PAGE
-//
-//	if *table.NumRows == maxRows {
-//		return fmt.Errorf("max table row count of %d exceeded", maxRows)
-//	}
-//
-//	table.AppendRow(statement.RowToInsert)
-//
-//	return nil
-//}
