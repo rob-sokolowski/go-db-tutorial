@@ -118,3 +118,13 @@ func (t NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error
 
 	return nil
 }
+
+type Node struct {
+	Value    int
+	Children []*Node
+}
+
+func Hello() {
+	fmt.Print("Hello!")
+
+}
