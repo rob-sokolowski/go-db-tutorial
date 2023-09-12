@@ -119,12 +119,27 @@ func (t NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error
 	return nil
 }
 
+type BTree struct {
+	Root *Node
+}
+
+type nodeKind = const (
+	ref = iota
+	val
+)
+
+type ref_ = string
+
+
 type Node struct {
-	Value    int
+	kind nodeKind
+	ref *ref_
+	val *tinydb.Row
 	Children []*Node
 }
 
-func Hello() {
-	fmt.Print("Hello!")
 
-}
+// initially, as we fill the tree, it consists of a single node containing nodes of val kind
+// we keep everything in this node, until an insert would result in the root node being greater than
+// on page (4KB). At this moment, we split the tree, the result is a total of 3 nodes. The root containing nodes
+// of kind ref, and the two children containing nodes of kind val
