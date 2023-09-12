@@ -16,4 +16,5 @@ type Statement struct {
 type DbTable interface {
 	ExecuteSelect(statement Statement, w io.Writer) error
 	ExecuteInsert(statement Statement, w io.Writer) error
+	Persist(w io.Writer) error
 }
