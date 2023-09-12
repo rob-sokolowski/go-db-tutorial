@@ -3,8 +3,10 @@ package naivetable
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"math"
+	"sort"
 
 	"testing"
 )
@@ -46,6 +48,26 @@ func spawnRows(count int) []tinydb.Row {
 	return rows
 }
 
+func bin(rows []tinydb.Row) {
+	bins := make(map[int]int)
+
+	for _, row := range rows {
+		ulen := len(row.Username)
+		bins[ulen] = bins[ulen] + 1
+	}
+
+	keys := make([]int, 0, len(bins))
+	for k := range bins {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
+	fmt.Println(keys)
+
+	fmt.Println(bins)
+
+}
+
 // TestSpawnRows checks that the row-spawning process is behaving as expected, so it can be used
 // in other tests
 func TestSpawnRows(t *testing.T) {
@@ -65,4 +87,6 @@ func TestSpawnRows(t *testing.T) {
 			t.FailNow()
 		}
 	}
+
+	bin(rows)
 }

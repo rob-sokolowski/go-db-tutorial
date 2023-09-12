@@ -81,7 +81,7 @@ func pagerOpen(filename string) (*Pager, error) {
 	return p, nil
 }
 
-func (t NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
+func (t *NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 	if *t.numRows == 0 {
 		fmt.Fprintln(w, "No rows in this table")
 	}
@@ -96,7 +96,7 @@ func (t NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error
 	return nil
 }
 
-func (t NaiveTable) appendRow(row *tinydb.Row) error {
+func (t *NaiveTable) appendRow(row *tinydb.Row) error {
 	targetPage := int(math.Floor(float64(*t.numRows) / float64(ROWS_PER_PAGE)))
 	pageIx := *t.numRows % ROWS_PER_PAGE
 
@@ -107,7 +107,7 @@ func (t NaiveTable) appendRow(row *tinydb.Row) error {
 	return nil
 }
 
-func (t NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
+func (t *NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
 
 	if *t.numRows == maxRows {
@@ -119,12 +119,20 @@ func (t NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error
 	return nil
 }
 
+type BTree struct {
+	Root *Node
+}
+
+type ref = string
+
 type Node struct {
-	Value    int
+	kind     string // ref of val
+	ref      *ref
+	val      *tinydb.Row
 	Children []*Node
 }
 
-func Hello() {
-	fmt.Print("Hello!")
-
-}
+// initially, as we fill the tree, it consists of a single node containing nodes of val kind
+// we keep everything in this node, until an insert would result in the root node being greater than
+// on page (4KB). At this moment, we split the tree, the result is a total of 3 nodes. The root containing nodes
+// of kind ref, and the two children containing nodes of kind val

@@ -21,7 +21,7 @@ func NewSSTable() (*SSTable, error) {
 	return t, nil
 }
 
-func (t SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
+func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	maxRows := 1000 // arbitrarily assigning for now
 
 	if t.numRows == maxRows {
@@ -34,7 +34,7 @@ func (t SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	// if key is new, increment numRows
 	_, exists := t.tree.Get(row.Id)
 	if !exists {
-		t.numRows++
+		t.numRows = t.numRows + 1
 	}
 
 	t.tree.Put(row.Id, row)
@@ -42,9 +42,10 @@ func (t SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	return nil
 }
 
-func (t SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
+func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 	if t.numRows == 0 {
 		fmt.Println("No rows in this table")
+		return nil
 	}
 
 	rows := t.tree.Values()

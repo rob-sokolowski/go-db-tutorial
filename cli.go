@@ -27,6 +27,7 @@ func Cli(reader io.Reader, writer io.Writer, filename string, tableType string) 
 
 	switch {
 	case tableType == "NaiveTable":
+		//return fmt.Errorf("TODO bring back table")
 		t, err = naivetable.NewNaiveTable(filename)
 	case tableType == "SSTable":
 		t, err = sstable.NewSSTable()
