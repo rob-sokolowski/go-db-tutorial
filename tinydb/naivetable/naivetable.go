@@ -119,6 +119,10 @@ func (t *NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) erro
 	return nil
 }
 
+func (t *NaiveTable) Persist(w io.Writer) error {
+	
+}
+
 type BTree struct {
 	Root *Node
 }
