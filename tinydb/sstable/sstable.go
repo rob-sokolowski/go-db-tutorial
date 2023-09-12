@@ -1,10 +1,12 @@
 package sstable
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"io"
+	// "encoding/gob"
 )
 
 type SSTable struct {
@@ -22,10 +24,7 @@ type Block struct {
 	data []keyVal
 }
 
-type keyVal struct {
-	key int 
-	val tinydb.Row 
-}
+
 
 
 func NewSSTable() (*SSTable, error) {
@@ -66,29 +65,32 @@ func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 
 	iterator := t.tree.Iterator()
 	for iterator.Next(){
-		// k := iterator.Key()
 		v := iterator.Value()
-		fmt.Printf("%i, %v", k, v)
+		fmt.Printf("%v\n",v)
 	}
 
 	return nil
 }
 
-func (t *SSTable) Persist(w io.Writer) error {
-
-	type Segment struct {
-	byteArray []byte
-	blockIdx *redblacktree.Tree
-	filename string
+type keyVal struct {
+	key int 
+	val tinydb.Row 
 }
+
+func (t *SSTable) Persist(w io.Writer) error {
+	var b bytes.Buffer
+	// encoder := gob.NewEncoder(&buffer)
+	// err := encoder.Encode()
 
 	iterator := t.tree.Iterator()
 	i := 0 
 	for iterator.Next(){
-		k := iterator.Key()
-		v := iterator.Value()
-		fmt.Printf("Write out to file %i, %v", k, v)
+		k, v := iterator.Key(), iterator.Value()
+		fmt.Fprintf(&b, k.(int), v.(tinydb.Row))
+
 		i++
 	}
+
+	fmt.Printf("our bytes: %s\n", b.String())
 return nil
 }
