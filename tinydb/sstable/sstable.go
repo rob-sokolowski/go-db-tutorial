@@ -12,6 +12,22 @@ type SSTable struct {
 	numRows int
 }
 
+type Segment struct {
+	byteArray []byte
+	blockIdx *redblacktree.Tree
+	filename string
+}
+
+type Block struct {
+	data []keyVal
+}
+
+type keyVal struct {
+	key int 
+	val tinydb.Row 
+}
+
+
 func NewSSTable() (*SSTable, error) {
 	t := &SSTable{
 		tree:    redblacktree.NewWithIntComparator(), // Q: other options?
@@ -22,7 +38,7 @@ func NewSSTable() (*SSTable, error) {
 }
 
 func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
-	maxRows := 1000 // arbitrarily assigning for now
+	maxRows := 100 // arbitrarily assigning for now
 
 	if t.numRows == maxRows {
 		// throw an error for now
@@ -48,10 +64,31 @@ func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 		return nil
 	}
 
-	rows := t.tree.Values()
-	for _, row := range rows {
-		fmt.Println(row)
+	iterator := t.tree.Iterator()
+	for iterator.Next(){
+		// k := iterator.Key()
+		v := iterator.Value()
+		fmt.Printf("%i, %v", k, v)
 	}
 
 	return nil
+}
+
+func (t *SSTable) Persist(w io.Writer) error {
+
+	type Segment struct {
+	byteArray []byte
+	blockIdx *redblacktree.Tree
+	filename string
+}
+
+	iterator := t.tree.Iterator()
+	i := 0 
+	for iterator.Next(){
+		k := iterator.Key()
+		v := iterator.Value()
+		fmt.Printf("Write out to file %i, %v", k, v)
+		i++
+	}
+return nil
 }
