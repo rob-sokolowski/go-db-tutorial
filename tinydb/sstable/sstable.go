@@ -10,38 +10,36 @@ import (
 )
 
 type SSTable struct {
-	tree    *redblacktree.Tree
-	numRows int
+	tree        *redblacktree.Tree
+	numRows     int
+	memtableMax int
 }
 
 type Segment struct {
 	byteArray []byte
-	blockIdx *redblacktree.Tree
-	filename string
+	blockIdx  *redblacktree.Tree
+	filename  string
 }
 
 type Block struct {
 	data []keyVal
 }
 
-
-
-
 func NewSSTable() (*SSTable, error) {
 	t := &SSTable{
-		tree:    redblacktree.NewWithIntComparator(), // Q: other options?
-		numRows: 0,
+		tree:        redblacktree.NewWithIntComparator(), // Q: other options?
+		numRows:     0,
+		memtableMax: 100,
 	}
 
 	return t, nil
 }
 
-func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
-	maxRows := 100 // arbitrarily assigning for now
-
-	if t.numRows == maxRows {
-		// throw an error for now
-		return fmt.Errorf("max table row count of %d exceeded", maxRows)
+func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error { // arbitrarily assigning for now
+	if t.tree.Size() == t.memtableMax {
+		t.Persist(w)
+		// TODO: Clear tree? return error for now
+		return fmt.Errorf("max table row count of %d exceeded", t.memtableMax)
 	}
 
 	row := *statement.RowToInsert
@@ -49,7 +47,7 @@ func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	// if key is new, increment numRows
 	_, exists := t.tree.Get(row.Id)
 	if !exists {
-		t.numRows = t.numRows + 1
+		t.numRows++
 	}
 
 	t.tree.Put(row.Id, row)
@@ -64,33 +62,36 @@ func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 	}
 
 	iterator := t.tree.Iterator()
-	for iterator.Next(){
+	for iterator.Next() {
 		v := iterator.Value()
-		fmt.Printf("%v\n",v)
+		fmt.Printf("%v\n", v)
 	}
 
 	return nil
 }
 
 type keyVal struct {
-	key int 
-	val tinydb.Row 
+	key int
+	val tinydb.Row
 }
 
 func (t *SSTable) Persist(w io.Writer) error {
 	var b bytes.Buffer
-	// encoder := gob.NewEncoder(&buffer)
-	// err := encoder.Encode()
+	//encoder := gob.NewEncoder(&b)
+	//err := encoder.Encode()
 
 	iterator := t.tree.Iterator()
-	i := 0 
-	for iterator.Next(){
+	i := 0
+	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
-		fmt.Fprintf(&b, k.(int), v.(tinydb.Row))
 
+		//val := tinydb.Row(v)
+		//
+		//fmt.Fprintf(&b, v.(tinydb.Row))
+		fmt.Println(k, v)
 		i++
 	}
 
 	fmt.Printf("our bytes: %s\n", b.String())
-return nil
+	return nil
 }
