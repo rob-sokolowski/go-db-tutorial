@@ -1,27 +1,16 @@
 package naivetable
 
 import (
-	"crypto/rand"
-	"encoding/binary"
-	"fmt"
+	"bytes"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
-	"math"
-	"sort"
 
+	"math/rand"
 	"testing"
 )
 
-func generateRandomString(min, max int, mu float64) string {
-	// randNormFloat64 generates a normally distributed float64 in range (-1, 1)
-	randNormFloat64 := func() float64 {
-		var u uint64
-		_ = binary.Read(rand.Reader, binary.BigEndian, &u)
-		return 2*(float64(u)/float64(1<<64)) - 1
-	}
-
-	sigma := float64(max-min) / 4.0
-	length := int(mu + randNormFloat64()*sigma)
-	length = int(math.Max(float64(min), math.Min(float64(max), float64(length))))
+func generateRandomString() string {
+	lengths := []int{6, 8, 8, 8, 10, 10, 10, 12, 12, 14, 18, 24, 30} // good enough ^.^
+	length := lengths[rand.Intn(len(lengths))]
 
 	// Generate a random string, consisting of ascii lowercase chars, of the determined length
 	bytes := make([]byte, length)
@@ -41,31 +30,11 @@ func spawnRows(count int) []tinydb.Row {
 
 	for i, _ := range rows {
 		rows[i].Id = i
-		rows[i].Username = generateRandomString(8, 40, 12)
-		rows[i].Email = generateRandomString(14, 52, 20) // emails typically have an additional @gmail.com, for example
+		rows[i].Username = generateRandomString()
+		rows[i].Email = generateRandomString()
 	}
 
 	return rows
-}
-
-func bin(rows []tinydb.Row) {
-	bins := make(map[int]int)
-
-	for _, row := range rows {
-		ulen := len(row.Username)
-		bins[ulen] = bins[ulen] + 1
-	}
-
-	keys := make([]int, 0, len(bins))
-	for k := range bins {
-		keys = append(keys, k)
-	}
-	sort.Ints(keys)
-
-	fmt.Println(keys)
-
-	fmt.Println(bins)
-
 }
 
 // TestSpawnRows checks that the row-spawning process is behaving as expected, so it can be used
@@ -87,6 +56,53 @@ func TestSpawnRows(t *testing.T) {
 			t.FailNow()
 		}
 	}
+}
 
-	bin(rows)
+// TestNewNaiveTable tests the initialization of a NaiveTable resulting from calling NewNaiveTable.
+// Two cases: 1) the file backing the table does not exist and must be created. 2) the file backing the table does
+// exist, and simply needs to be opened.
+func TestNewNaiveTable(t *testing.T) {
+	// First, test initialization requiring file creation
+	tablename := "testtable"
+	filepath, err := tinydb.GenerateFilename("./test-data/naive-table")
+	if err != nil {
+		t.Errorf("could not create test filepath %s", err)
+		t.FailNow()
+	}
+
+	table, err := NewNaiveTable(filepath, tablename)
+	if table == nil {
+		t.Error("expected non-nil table")
+		t.FailNow()
+	}
+
+	// Next, test initialization reusing the same file, opening instead of creating it.
+	table2, err := NewNaiveTable(filepath, tablename)
+	if table2 == nil {
+		t.Error("expected non-nil table")
+		t.FailNow()
+	}
+
+	if table.file.Name() != table2.file.Name() {
+		t.Error("expected two test tables to be backed by same file")
+	}
+}
+
+func TestExecuteInsert(t *testing.T) {
+	rows := spawnRows(1)
+	tablename := "testtable"
+	filepath, err := tinydb.GenerateFilename("./test-data/naive-table")
+	if err != nil {
+		t.Errorf("could not create test filepath %s", err)
+		t.FailNow()
+	}
+
+	table, err := NewNaiveTable(filepath, tablename)
+	statement := tinydb.Statement{
+		Stmnt:       "insert",
+		RowToInsert: &rows[0],
+	}
+	wout := &bytes.Buffer{}
+
+	_ = table.ExecuteInsert(statement, wout)
 }

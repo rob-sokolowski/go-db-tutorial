@@ -1,12 +1,9 @@
 package naivetable
 
 import (
-	"encoding/gob"
 	"fmt"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"io"
-	"log"
-	"math"
 	"os"
 )
 
@@ -22,109 +19,73 @@ type Pager struct {
 }
 
 type NaiveTable struct {
-	numRows *int
-	pager   *Pager
+	tree      BTree
+	tableName string
+	file      *os.File
 }
 
-func NewNaiveTable(filename string) (*NaiveTable, error) {
-	p, err := pagerOpen(filename)
-	t := &NaiveTable{
-		numRows: &p.numRows,
-		pager:   p,
+// TODO: New naive table should create directory file if not exists, noop if it does
+func NewNaiveTable(filepath, tableName string) (*NaiveTable, error) {
+	// Check if file exists, create it if not.
+	var file *os.File
+
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		file, err = os.Create(filepath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create file: %w", err)
+		}
+	} else if err != nil {
+		// Another error occurred while checking file existence
+		return nil, fmt.Errorf("failed to check file existence: %w", err)
+	} else {
+		// File exists, open it
+		file, err = os.Open(filepath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file: %w", err)
+		}
 	}
 
-	if err != nil {
-		fmt.Println(err)
-		return t, err
+	// TODO: Load b-tree?? Or, am I keeping everything file-based for now?
+	tree := BTree{
+		Path: filepath,
 	}
 
-	return t, nil
-}
-
-func pagerOpen(filename string) (*Pager, error) {
-	// open file
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-
-	var pages [TABLE_PAGE_CAP]Page
-
-	p := &Pager{
-		filePointer: file,
-		pages:       pages,
-		numRows:     0,
-	}
-
-	// TMP: write all data to page cache
-	var page Page
-	var decodedRows []*tinydb.Row
-
-	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&decodedRows)
-
-	if err != nil {
-		fmt.Println("Decoding Error:", err)
-		return p, nil
-	}
-	for i := 0; i < len(decodedRows); i++ {
-		page[i] = decodedRows[i]
-	}
-	p.numRows = len(decodedRows)
-
-	// we need the data to be pages
-	p.pages[0] = page
-
-	fmt.Println("NaiveTable Loaded.")
-
-	return p, nil
+	return &NaiveTable{
+		tree:      tree,
+		tableName: tableName,
+		file:      file,
+	}, nil
 }
 
 func (t *NaiveTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
-	if *t.numRows == 0 {
-		fmt.Fprintln(w, "No rows in this table")
-	}
-	for i := 0; i < *t.numRows; i++ {
-		fmt.Fprintf(w, "TODO: print row %d \n", i)
-		// _ := int(math.Floor(float64(i) / float64(ROWS_PER_PAGE)))
-		// _ := i % ROWS_PER_PAGE
+	// noop until I swap in  b-tree
+	_, _ = fmt.Fprintln(w, "ExecuteSelect: NOOP")
 
-		// fmt.Fprintln(w, t.Pages[targetPage][pageIx])
-	}
-
-	return nil
-}
-
-func (t *NaiveTable) appendRow(row *tinydb.Row) error {
-	targetPage := int(math.Floor(float64(*t.numRows) / float64(ROWS_PER_PAGE)))
-	pageIx := *t.numRows % ROWS_PER_PAGE
-
-	// TODO: nil pointer exception is being thrown here, debug!
-	t.pager.pages[targetPage][pageIx] = row
-
-	*t.numRows += 1
 	return nil
 }
 
 func (t *NaiveTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
-	maxRows := TABLE_PAGE_CAP * ROWS_PER_PAGE
+	// noop until I swap in b-tree
+	_, _ = fmt.Fprintln(w, "ExecuteInsert: NOOP")
 
-	if *t.numRows == maxRows {
-		return fmt.Errorf("max table row count of %d exceeded", maxRows)
-	}
+	return t.insert(statement.RowToInsert.Id, *statement.RowToInsert)
+}
 
-	t.appendRow(statement.RowToInsert)
+func (t *NaiveTable) insert(key int, row tinydb.Row) error {
 
 	return nil
 }
 
 func (t *NaiveTable) Persist(w io.Writer) error {
-	
+	// noop until I swap in b-tree
+	_, _ = fmt.Fprintln(w, "Persist: NOOP")
+	return nil
 }
 
 type BTree struct {
 	Root *Node
+	Path string
+	Vals map[int]tinydb.Row
 }
 
 type ref = string
