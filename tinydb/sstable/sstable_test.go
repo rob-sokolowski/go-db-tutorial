@@ -13,9 +13,10 @@ func spawnRows(count int) []tinydb.Row {
 	rows := make([]tinydb.Row, count, count)
 
 	for i, _ := range rows {
-		rows[i].Id = i * 2 // don't always have id = row number
-		rows[i].Username = fmt.Sprintf("%d-aaaaaaaaaaa", i)
-		rows[i].Email = fmt.Sprintf("%d-bbbbbbbbbbbbbb", i)
+		id := i * 2
+		rows[i].Id = id // don't always have id = row number
+		rows[i].Username = fmt.Sprintf("%d-aaaaaaaaaaa", id)
+		rows[i].Email = fmt.Sprintf("%d-bbbbbbbbbbbbbb", id)
 	}
 
 	return rows
