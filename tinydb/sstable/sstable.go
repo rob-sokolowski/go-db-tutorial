@@ -2,10 +2,12 @@ package sstable
 
 import (
 	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"io"
+	"os"
 	// "encoding/gob"
 )
 
@@ -43,7 +45,6 @@ func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	}
 
 	row := *statement.RowToInsert
-
 	// if key is new, increment numRows
 	_, exists := t.tree.Get(row.Id)
 	if !exists {
@@ -75,22 +76,52 @@ type keyVal struct {
 	val tinydb.Row
 }
 
+type SsTable_ struct {
+	Rows []tinydb.Row
+}
+
+type SparseIxEntry struct {
+	Key        int
+	ByteOffset int
+}
+
 func (t *SSTable) Persist(w io.Writer) error {
+	// write memtable rows to disk:
+	//    create file if not exists
+	//    append to file if it does
+	//
+	// clear memtable
 	var b bytes.Buffer
-	//encoder := gob.NewEncoder(&b)
-	//err := encoder.Encode()
+	encoder := gob.NewEncoder(&b)
 
 	iterator := t.tree.Iterator()
 	i := 0
+	sparseIxes := make([]SparseIxEntry, 0)
 	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
+		if i > 0 && i%10 == 0 {
+			fmt.Printf("Hello, %d", i)
+			ix := SparseIxEntry{
+				Key:        k.(int),
+				ByteOffset: b.Len(),
+			}
+			sparseIxes = append(sparseIxes, ix)
+		}
 
-		//val := tinydb.Row(v)
-		//
-		//fmt.Fprintf(&b, v.(tinydb.Row))
-		fmt.Println(k, v)
+		val := v.(tinydb.Row)
+		// TODO: Errors
+		_ = encoder.Encode(k)
+		_ = encoder.Encode(val)
+
 		i++
 	}
+	// TODO: Errors
+	_ = encoder.Encode(sparseIxes)
+	err := os.WriteFile("file123.data", b.Bytes(), 0666)
+	if err != nil {
+		return err
+	}
+	// write to disk??
 
 	fmt.Printf("our bytes: %s\n", b.String())
 	return nil
