@@ -41,8 +41,9 @@ func TestSpawnRows(t *testing.T) {
 
 func TestSstable(t *testing.T) {
 	rows := spawnRows(101)
+	filename, _ := tinydb.GenerateFilename("./test-data/sstable")
 
-	table, _ := NewSSTable()
+	table, _ := NewSSTable(filename)
 	w := bytes.Buffer{}
 
 	for _, row := range rows {
@@ -54,8 +55,6 @@ func TestSstable(t *testing.T) {
 		_ = table.ExecuteInsert(stmnt, &w)
 	}
 
-	stmnt := tinydb.Statement{
-		Stmnt: "select",
-	}
-	_ = table.ExecuteSelect(stmnt, &w)
+	// note, persist is implicitly called since we appended 101 rows, we now try to seek from that file
+	_ = table.seek()
 }
