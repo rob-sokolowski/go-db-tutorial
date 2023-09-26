@@ -15,7 +15,7 @@ import (
 
 func main() {
 	dbpath := flag.String("dbpath", "db.data", "path to file persisting DB data")
-	tableType := flag.String("tableType", "NaiveTable", "type of table")
+	tableType := flag.String("tableType", "SSTable", "type of table")
 	flag.Parse()
 
 	Cli(os.Stdin, os.Stdout, *dbpath, *tableType)

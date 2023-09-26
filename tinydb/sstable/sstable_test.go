@@ -39,6 +39,13 @@ func TestSpawnRows(t *testing.T) {
 	}
 }
 
+func TestTest(t * testing.T){
+	got := false
+	if got == false {
+		t.Errorf("test fails")
+	}
+}
+
 func TestSstable(t *testing.T) {
 	rows := spawnRows(101)
 	filename, _ := tinydb.GenerateFilename("./test-data/sstable")
@@ -47,6 +54,7 @@ func TestSstable(t *testing.T) {
 	w := bytes.Buffer{}
 
 	for _, row := range rows {
+		// fmt.Println(row) // check test is doing something
 		stmnt := tinydb.Statement{
 			Stmnt:       "insert",
 			RowToInsert: &row,
