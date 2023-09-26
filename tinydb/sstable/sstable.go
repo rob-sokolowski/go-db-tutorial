@@ -15,6 +15,8 @@ type SSTable struct {
 	tree        *redblacktree.Tree
 	numRows     int
 	memtableMax int
+	ixSparsity  int
+	filename    string
 }
 
 type Segment struct {
@@ -27,11 +29,13 @@ type Block struct {
 	data []keyVal
 }
 
-func NewSSTable() (*SSTable, error) {
+func NewSSTable(filename string) (*SSTable, error) {
 	t := &SSTable{
 		tree:        redblacktree.NewWithIntComparator(), // Q: other options?
 		numRows:     0,
 		memtableMax: 100,
+		ixSparsity:  10,
+		filename:    filename,
 	}
 
 	return t, nil
@@ -99,7 +103,7 @@ func (t *SSTable) Persist(w io.Writer) error {
 	sparseIxes := make([]SparseIxEntry, 0)
 	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
-		if i > 0 && i%10 == 0 {
+		if i%t.ixSparsity == 0 {
 			fmt.Printf("Hello, %d", i)
 			ix := SparseIxEntry{
 				Key:        k.(int),
@@ -116,13 +120,51 @@ func (t *SSTable) Persist(w io.Writer) error {
 		i++
 	}
 	// TODO: Errors
+	len1 := b.Len()
 	_ = encoder.Encode(sparseIxes)
-	err := os.WriteFile("file123.data", b.Bytes(), 0666)
+	len2 := b.Len()
+	sparseIxesLen := (int32)(len2 - len1)
+	_ = encoder.Encode(sparseIxesLen)
+
+	err := os.WriteFile(t.filename, b.Bytes(), 0666)
 	if err != nil {
 		return err
 	}
-	// write to disk??
 
-	fmt.Printf("our bytes: %s\n", b.String())
+	return nil
+}
+
+func (t *SSTable) seek() error {
+	// open file
+	f, err := os.Open(t.filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fInfo, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	// jump to end of file, the last 4 bs will tell us where to jump to next
+	if fInfo.Size() < 4 {
+		return fmt.Errorf("file too small")
+	}
+	decoder := gob.NewDecoder(f)
+	_, err = f.Seek(-5, io.SeekEnd)
+
+	bytesRead := new(bytes.Buffer)
+	f.Read(&bytesRead)
+
+	_, err = f.Seek(-5, io.SeekEnd) // re-seek
+	var val int32
+	err = decoder.Decode(&val)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(val)
+
 	return nil
 }
