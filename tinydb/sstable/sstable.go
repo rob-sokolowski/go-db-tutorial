@@ -8,7 +8,7 @@ import (
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"io"
 	"os"
-	// "encoding/gob"
+	"reflect"
 )
 
 type SSTable struct {
@@ -19,19 +19,29 @@ type SSTable struct {
 	filename    string
 }
 
-type Segment struct {
-	byteArray []byte
-	blockIdx  *redblacktree.Tree
-	filename  string
+type keyVal struct {
+	key int
+	val tinydb.Row
 }
 
-type Block struct {
-	data []keyVal
+// type SsTable_ struct {
+// 	Rows []tinydb.Row
+// }
+
+type SparseIxEntry struct {
+	Key        int
+	ByteOffset int
 }
+
+// type SSTable struct {
+// 	byteArray []byte
+// 	blockIdx  []SparseIxEntry
+// 	filename  string
+// }
 
 func NewSSTable(filename string) (*SSTable, error) {
 	t := &SSTable{
-		tree:        redblacktree.NewWithIntComparator(), // Q: other options?
+		tree:        redblacktree.NewWithIntComparator(), 
 		numRows:     0,
 		memtableMax: 100,
 		ixSparsity:  10,
@@ -41,10 +51,9 @@ func NewSSTable(filename string) (*SSTable, error) {
 	return t, nil
 }
 
-func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error { // arbitrarily assigning for now
+func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error { 
 	if t.tree.Size() == t.memtableMax {
 		t.Persist(w)
-		// TODO: Clear tree? return error for now
 		return fmt.Errorf("max table row count of %d exceeded", t.memtableMax)
 	}
 
@@ -75,19 +84,6 @@ func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 	return nil
 }
 
-type keyVal struct {
-	key int
-	val tinydb.Row
-}
-
-type SsTable_ struct {
-	Rows []tinydb.Row
-}
-
-type SparseIxEntry struct {
-	Key        int
-	ByteOffset int
-}
 
 func (t *SSTable) Persist(w io.Writer) error {
 	// write memtable rows to disk:
@@ -100,11 +96,12 @@ func (t *SSTable) Persist(w io.Writer) error {
 
 	iterator := t.tree.Iterator()
 	i := 0
-	sparseIxes := make([]SparseIxEntry, 0)
+	sparseIxes := make([]SparseIxEntry, 0) // Q: Do we want to hard-code (len(SparseIxes) == memtableMax / ixSparsity - 1) ?
 	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
-		if i%t.ixSparsity == 0 {
-			fmt.Printf("Hello, %d", i)
+		if i % t.ixSparsity == 0 && i != 0 {
+			// check that we are grabbing every ith key
+			// fmt.Printf("Hello, %d, %d\n", i, k) 
 			ix := SparseIxEntry{
 				Key:        k.(int),
 				ByteOffset: b.Len(),
@@ -112,19 +109,28 @@ func (t *SSTable) Persist(w io.Writer) error {
 			sparseIxes = append(sparseIxes, ix)
 		}
 
-		val := v.(tinydb.Row)
-		// TODO: Errors
+		val := v.(tinydb.Row) // cast val as Row
+
+		// TODO: Errors???
 		_ = encoder.Encode(k)
 		_ = encoder.Encode(val)
-
 		i++
 	}
-	// TODO: Errors
-	len1 := b.Len()
+
+	// fmt.Println(b)
+	fmt.Println(sparseIxes)
+
+	// TODO: Encode&append sparseIxes, byteOffsetSparseIxes
+	// len1 is already offset for sparseIxes - why not just save that address?
+	sparseIxesOffset := b.Len()
 	_ = encoder.Encode(sparseIxes)
-	len2 := b.Len()
-	sparseIxesLen := (int32)(len2 - len1)
-	_ = encoder.Encode(sparseIxesLen)
+	_ = encoder.Encode(sparseIxesOffset)
+	
+	// fmt.Println(b)
+	// len2 := b.Len()
+	// sparseIxesLen := (int32)(len2 - sparseIxesOffset)
+	
+	// _ = encoder.Encode(sparseIxesLen) 
 
 	err := os.WriteFile(t.filename, b.Bytes(), 0666)
 	if err != nil {
@@ -136,35 +142,50 @@ func (t *SSTable) Persist(w io.Writer) error {
 
 func (t *SSTable) seek() error {
 	// open file
-	f, err := os.Open(t.filename)
-	if err != nil {
-		return err
-	}
+	f, _ := os.Open(t.filename)
+	fmt.Println("PING1", f)
+	// if err != nil {
+	// 	return err
+	// }
+	// not reaching here
+	fmt.Println("PING2", f)
 	defer f.Close()
 
-	fInfo, err := f.Stat()
-	if err != nil {
-		return err
-	}
+	b := new(bytes.Buffer) // a pointer to a buffer to hold sparseIx // data for seek to scan over
+	// decoder := gob.NewDecoder(f)
+	fmt.Println("PING3", b)
+	// gets SparseIxOffset
 
-	// jump to end of file, the last 4 bs will tell us where to jump to next
+	// TODO: there is no file, so there is no fileInfo 
+	fInfo, _ := f.Stat()
+	// if err != nil {
+	// 	return err
+	// }
+	fmt.Println("PING4", fInfo)
+	// jump to end of file, the last 4 bytes will tell us where to jump to next
 	if fInfo.Size() < 4 {
 		return fmt.Errorf("file too small")
 	}
-	decoder := gob.NewDecoder(f)
-	_, err = f.Seek(-5, io.SeekEnd)
+	byteOffsetForSpaseIx, _ := f.Seek(-5, io.SeekEnd)
+	fmt.Println(byteOffsetForSpaseIx)
+	fmt.Println(reflect.TypeOf(*b))
+	// f.ReadAt(*b, byteOffsetForSpaseIx)
 
-	bytesRead := new(bytes.Buffer)
-	f.Read(&bytesRead)
+	//print buffer
+	// fmt.Println(b)
+	
 
-	_, err = f.Seek(-5, io.SeekEnd) // re-seek
-	var val int32
-	err = decoder.Decode(&val)
-	if err != nil {
-		return err
-	}
 
-	fmt.Println(val)
+	// _, err = f.Seek(-5, io.SeekEnd) // re-seek
+	// // var val int32
+	// // do you mean 
+	// val, err := f.Seek(-5, io.SeekEnd) // re-seek
+	// err = decoder.Decode(&val) // val doesn't have a val tho?
+	// if err != nil {
+	// 	return err
+	// }
+
+	// fmt.Println(val)
 
 	return nil
 }
