@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
+	"os"
 	"testing"
 )
 
@@ -39,11 +40,9 @@ func TestSpawnRows(t *testing.T) {
 	}
 }
 
-func TestTest(t * testing.T){
-	got := false
-	if got == false {
-		t.Errorf("test fails")
-	}
+func TestTest(t *testing.T) {
+	dir, _ := os.Getwd()
+	fmt.Printf("Current working dir: %s ", dir)
 }
 
 func TestSstable(t *testing.T) {
