@@ -89,8 +89,9 @@ func (t *SSTable) Persist(w io.Writer) error {
 	// write memtable rows to disk:
 	//    create file if not exists
 	//    append to file if it does
-	//
+
 	// clear memtable
+
 	var b bytes.Buffer
 	encoder := gob.NewEncoder(&b)
 
@@ -100,8 +101,6 @@ func (t *SSTable) Persist(w io.Writer) error {
 	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
 		if i % t.ixSparsity == 0 && i != 0 {
-			// check that we are grabbing every ith key
-			// fmt.Printf("Hello, %d, %d\n", i, k) 
 			ix := SparseIxEntry{
 				Key:        k.(int),
 				ByteOffset: b.Len(),
@@ -117,17 +116,17 @@ func (t *SSTable) Persist(w io.Writer) error {
 		i++
 	}
 
-	// fmt.Println(b)
-	fmt.Println(sparseIxes)
+	// prints out indexes
+	fmt.Println(sparseIxes) 
 
 	// TODO: Encode&append sparseIxes, byteOffsetSparseIxes
 	// len1 is already offset for sparseIxes - why not just save that address?
 	sparseIxesOffset := b.Len()
+	fmt.Println(sparseIxesOffset)
 	_ = encoder.Encode(sparseIxes)
-	_ = encoder.Encode(sparseIxesOffset)
+	_ = encoder.Encode(uint16(sparseIxesOffset))
 	
-	// fmt.Println(b)
-	// len2 := b.Len()
+
 	// sparseIxesLen := (int32)(len2 - sparseIxesOffset)
 	
 	// _ = encoder.Encode(sparseIxesLen) 
@@ -142,50 +141,49 @@ func (t *SSTable) Persist(w io.Writer) error {
 
 func (t *SSTable) seek() error {
 	// open file
-	f, _ := os.Open(t.filename)
-	fmt.Println("PING1", f)
-	// if err != nil {
-	// 	return err
-	// }
-	// not reaching here
-	fmt.Println("PING2", f)
+	f, err := os.Open(t.filename)
+	fmt.Println("pointer to file: ", f)
+	if err != nil {
+		return err
+	}
+
 	defer f.Close()
 
 	b := new(bytes.Buffer) // a pointer to a buffer to hold sparseIx // data for seek to scan over
-	// decoder := gob.NewDecoder(f)
-	fmt.Println("PING3", b)
-	// gets SparseIxOffset
 
-	// TODO: there is no file, so there is no fileInfo 
-	fInfo, _ := f.Stat()
-	// if err != nil {
-	// 	return err
-	// }
-	fmt.Println("PING4", fInfo)
+	fmt.Println("bytes Buffer", b) 
+	fmt.Println(reflect.TypeOf(*b))
+
+	fInfo, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	fmt.Println("File Info", fInfo)
+	
 	// jump to end of file, the last 4 bytes will tell us where to jump to next
 	if fInfo.Size() < 4 {
 		return fmt.Errorf("file too small")
 	}
-	byteOffsetForSpaseIx, _ := f.Seek(-5, io.SeekEnd)
-	fmt.Println(byteOffsetForSpaseIx)
-	fmt.Println(reflect.TypeOf(*b))
+
+
+	// var b2 []byte
+	// n, _ := f.ReadAt(b, -5)
+	// fmt.Println(n)
 	// f.ReadAt(*b, byteOffsetForSpaseIx)
 
-	//print buffer
-	// fmt.Println(b)
-	
-
-
 	// _, err = f.Seek(-5, io.SeekEnd) // re-seek
-	// // var val int32
-	// // do you mean 
-	// val, err := f.Seek(-5, io.SeekEnd) // re-seek
-	// err = decoder.Decode(&val) // val doesn't have a val tho?
-	// if err != nil {
-	// 	return err
-	// }
 
-	// fmt.Println(val)
+	var val uint16
+
+	decoder := gob.NewDecoder(f)
+	_, err = f.Seek(-2, io.SeekEnd) // re-seek
+	err = decoder.Decode(&val) 
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	fmt.Println("VAL", val)
 
 	return nil
 }
