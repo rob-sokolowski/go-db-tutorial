@@ -2,6 +2,7 @@ package sstable
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"github.com/emirpasic/gods/trees/redblacktree"
@@ -41,7 +42,7 @@ type SparseIxEntry struct {
 
 func NewSSTable(filename string) (*SSTable, error) {
 	t := &SSTable{
-		tree:        redblacktree.NewWithIntComparator(), 
+		tree:        redblacktree.NewWithIntComparator(),
 		numRows:     0,
 		memtableMax: 100,
 		ixSparsity:  10,
@@ -51,7 +52,7 @@ func NewSSTable(filename string) (*SSTable, error) {
 	return t, nil
 }
 
-func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error { 
+func (t *SSTable) ExecuteInsert(statement tinydb.Statement, w io.Writer) error {
 	if t.tree.Size() == t.memtableMax {
 		t.Persist(w)
 		return fmt.Errorf("max table row count of %d exceeded", t.memtableMax)
@@ -84,7 +85,6 @@ func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 	return nil
 }
 
-
 func (t *SSTable) Persist(w io.Writer) error {
 	// write memtable rows to disk:
 	//    create file if not exists
@@ -100,7 +100,7 @@ func (t *SSTable) Persist(w io.Writer) error {
 	sparseIxes := make([]SparseIxEntry, 0) // Q: Do we want to hard-code (len(SparseIxes) == memtableMax / ixSparsity - 1) ?
 	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
-		if i % t.ixSparsity == 0 && i != 0 {
+		if i%t.ixSparsity == 0 && i != 0 {
 			ix := SparseIxEntry{
 				Key:        k.(int),
 				ByteOffset: b.Len(),
@@ -117,7 +117,7 @@ func (t *SSTable) Persist(w io.Writer) error {
 	}
 
 	// prints out indexes
-	fmt.Println(sparseIxes) 
+	fmt.Println(sparseIxes)
 
 	// TODO: Encode&append sparseIxes, byteOffsetSparseIxes
 	// len1 is already offset for sparseIxes - why not just save that address?
@@ -125,11 +125,10 @@ func (t *SSTable) Persist(w io.Writer) error {
 	fmt.Println(sparseIxesOffset)
 	_ = encoder.Encode(sparseIxes)
 	_ = encoder.Encode(uint16(sparseIxesOffset))
-	
 
 	// sparseIxesLen := (int32)(len2 - sparseIxesOffset)
-	
-	// _ = encoder.Encode(sparseIxesLen) 
+
+	// _ = encoder.Encode(sparseIxesLen)
 
 	err := os.WriteFile(t.filename, b.Bytes(), 0666)
 	if err != nil {
@@ -151,7 +150,7 @@ func (t *SSTable) seek() error {
 
 	b := new(bytes.Buffer) // a pointer to a buffer to hold sparseIx // data for seek to scan over
 
-	fmt.Println("bytes Buffer", b) 
+	fmt.Println("bytes Buffer", b)
 	fmt.Println(reflect.TypeOf(*b))
 
 	fInfo, err := f.Stat()
@@ -159,25 +158,18 @@ func (t *SSTable) seek() error {
 		return err
 	}
 	fmt.Println("File Info", fInfo)
-	
+
 	// jump to end of file, the last 4 bytes will tell us where to jump to next
 	if fInfo.Size() < 4 {
 		return fmt.Errorf("file too small")
 	}
 
-
-	// var b2 []byte
-	// n, _ := f.ReadAt(b, -5)
-	// fmt.Println(n)
-	// f.ReadAt(*b, byteOffsetForSpaseIx)
-
-	// _, err = f.Seek(-5, io.SeekEnd) // re-seek
+	offset := fInfo.Size() - 2
+	buffer := make([]byte, 2)
+	_, err = f.ReadAt(buffer, offset)
 
 	var val uint16
-
-	decoder := gob.NewDecoder(f)
-	_, err = f.Seek(-2, io.SeekEnd) // re-seek
-	err = decoder.Decode(&val) 
+	err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &val)
 	if err != nil {
 		fmt.Println(err)
 		return err

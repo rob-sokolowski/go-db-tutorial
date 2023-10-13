@@ -40,12 +40,12 @@ func TestSpawnRows(t *testing.T) {
 	}
 }
 
-func TestTest(t * testing.T){
-	got := false
-	if got == false {
-		t.Errorf("test fails")
-	}
-}
+//func TestTest(t * testing.T){
+//	got := false
+//	if got == false {
+//		t.Errorf("test fails")
+//	}
+//}
 
 func TestSstable(t *testing.T) {
 	rows := spawnRows(101)
