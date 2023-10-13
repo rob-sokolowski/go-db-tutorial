@@ -9,7 +9,7 @@ import (
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
 	"io"
 	"os"
-	"reflect"
+	// "reflect"
 )
 
 type SSTable struct {
@@ -20,25 +20,15 @@ type SSTable struct {
 	filename    string
 }
 
-type keyVal struct {
-	key int
-	val tinydb.Row
+type KeyVal struct {
+	Key int
+	Val tinydb.Row
 }
-
-// type SsTable_ struct {
-// 	Rows []tinydb.Row
-// }
 
 type SparseIxEntry struct {
 	Key        int
 	ByteOffset int
 }
-
-// type SSTable struct {
-// 	byteArray []byte
-// 	blockIdx  []SparseIxEntry
-// 	filename  string
-// }
 
 func NewSSTable(filename string) (*SSTable, error) {
 	t := &SSTable{
@@ -93,6 +83,7 @@ func (t *SSTable) Persist(w io.Writer) error {
 	// clear memtable
 
 	var b bytes.Buffer
+
 	encoder := gob.NewEncoder(&b)
 
 	iterator := t.tree.Iterator()
@@ -100,6 +91,8 @@ func (t *SSTable) Persist(w io.Writer) error {
 	sparseIxes := make([]SparseIxEntry, 0) // Q: Do we want to hard-code (len(SparseIxes) == memtableMax / ixSparsity - 1) ?
 	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
+
+		// construct sparseIx
 		if i%t.ixSparsity == 0 && i != 0 {
 			ix := SparseIxEntry{
 				Key:        k.(int),
@@ -108,27 +101,25 @@ func (t *SSTable) Persist(w io.Writer) error {
 			sparseIxes = append(sparseIxes, ix)
 		}
 
-		val := v.(tinydb.Row) // cast val as Row
+		kv := KeyVal{Key:k.(int), Val: v.(tinydb.Row) ,}
+		err := encoder.Encode(kv)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
 
-		// TODO: Errors???
-		_ = encoder.Encode(k)
-		_ = encoder.Encode(val)
 		i++
 	}
 
-	// prints out indexes
-	fmt.Println(sparseIxes)
 
-	// TODO: Encode&append sparseIxes, byteOffsetSparseIxes
-	// len1 is already offset for sparseIxes - why not just save that address?
+	// prints out indexes
+	fmt.Println("SPARSE INDXS FROM WRITE: ", sparseIxes)
+
 	sparseIxesOffset := b.Len()
-	fmt.Println(sparseIxesOffset)
+
 	_ = encoder.Encode(sparseIxes)
 	_ = encoder.Encode(uint16(sparseIxesOffset))
 
-	// sparseIxesLen := (int32)(len2 - sparseIxesOffset)
-
-	// _ = encoder.Encode(sparseIxesLen)
 
 	err := os.WriteFile(t.filename, b.Bytes(), 0666)
 	if err != nil {
@@ -138,75 +129,112 @@ func (t *SSTable) Persist(w io.Writer) error {
 	return nil
 }
 
-func (t *SSTable) seek() error {
+
+func (t *SSTable) seek(targetKey int) error {
 	// open file
 	f, err := os.Open(t.filename)
-	fmt.Println("pointer to file: ", f)
 	if err != nil {
 		return err
 	}
 
 	defer f.Close()
 
-	b := new(bytes.Buffer) // a pointer to a buffer to hold sparseIx // data for seek to scan over
-
-	fmt.Println("bytes Buffer", b)
-	fmt.Println(reflect.TypeOf(*b))
-
 	fInfo, err := f.Stat()
 	if err != nil {
 		return err
 	}
-	fmt.Println("File Info", fInfo)
-
-	// jump to end of file, the last 4 bytes will tell us where to jump to next
-	if fInfo.Size() < 4 {
+	if fInfo.Size() < 2 {
 		return fmt.Errorf("file too small")
 	}
 
-	offset := fInfo.Size() - 2
+	// write last two bytes of file to buffer
 	buffer := make([]byte, 2)
-	_, err = f.ReadAt(buffer, offset)
-
-	var sparseIxOffset uint16
-	err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &sparseIxOffset)
-
+	offset := fInfo.Size() - 2
+	_, err = f.ReadAt(buffer, offset)	
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
-	fmt.Println("VAL", sparseIxOffset)
+	// decode sparseIxOffset from buffer
+	var sparseIxOffset uint16
+	err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &sparseIxOffset)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	// write binary for sparseIdx to buffer 
 	_, err = f.Seek(int64(sparseIxOffset), 0)
 	if err != nil {
-		fmt.Print("Could not seek")
+		fmt.Print("Could not seek idx")
 		return err
 	}
 
 	i := offset - int64(sparseIxOffset)
-
 	buffer2 := make([]byte, i)
 	_, err = f.Read(buffer2)
 	if err != nil {
-		fmt.Println("failed to read")
+		fmt.Println("failed to read sparseIdx")
 		return err
 	}
 
-	_, err = f.ReadAt(buffer, offset)
-
+	// decode sparseIdx from buffer
 	var sparseIxes []SparseIxEntry
 	sparseIxDecoder := gob.NewDecoder(bytes.NewReader(buffer2))
 	err = sparseIxDecoder.Decode(&sparseIxes)
-
-	//err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &sparseIxOffset)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
-	//gob.Decoder{}
 
-	//decoder := gob.NewDecoder()
-	//err = binary.Read(f, binary.BigEndian, &sparseIxes)
+	fmt.Println("SPARSE INDXS FROM SEEK: ", sparseIxes)
+
+	// START SEEK LOGIC
+	// get keyVal ByteOffset
+	var targetOffset int64
+
+	for _, e := range sparseIxes {
+		if e.Key == targetKey {
+			targetOffset = int64(e.ByteOffset)
+			// fmt.Println("TARGET OFFSET: ", targetOffset)
+		}
+	}
+
+	// read keyVal into byte array and decode
+	_, err = f.Seek(targetOffset, 0)
+	if err != nil {
+		fmt.Print("Could not seek target")
+		return err
+	}
+
+	size := 490 // TODO: set size to nextByteOffset - prevByteOffset
+	kvbuffer := make([]byte, size) 
+	_, err = f.Read(kvbuffer)
+	if err != nil {
+		fmt.Println("failed to read kvpairs")
+		return err
+	}
+
+	kvDecoder := gob.NewDecoder(bytes.NewReader(kvbuffer))
+
+	for i := 0; i < t.ixSparsity; i++ {
+
+		var kv KeyVal
+
+		// TODO: fix error `gob: unknown type id or corrupted data`
+		if err := kvDecoder.Decode(&kv); err != nil {
+			fmt.Println("Error decoding KeyVal:", err)
+			break
+		}
+
+		if kv.Key == targetKey {
+			fmt.Println("FOUND key: ", kv.Key) 
+		} 
+
+
+	}
+
 
 	return nil
 }

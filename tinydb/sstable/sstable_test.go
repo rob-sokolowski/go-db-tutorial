@@ -65,5 +65,5 @@ func TestSstable(t *testing.T) {
 	}
 
 	// note, persist is implicitly called since we appended 101 rows, we now try to seek from that file
-	_ = table.seek()
+	_ = table.seek(100)
 }
