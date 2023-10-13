@@ -168,14 +168,45 @@ func (t *SSTable) seek() error {
 	buffer := make([]byte, 2)
 	_, err = f.ReadAt(buffer, offset)
 
-	var val uint16
-	err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &val)
+	var sparseIxOffset uint16
+	err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &sparseIxOffset)
+
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
-	fmt.Println("VAL", val)
+	fmt.Println("VAL", sparseIxOffset)
+	_, err = f.Seek(int64(sparseIxOffset), 0)
+	if err != nil {
+		fmt.Print("Could not seek")
+		return err
+	}
+
+	i := offset - int64(sparseIxOffset)
+
+	buffer2 := make([]byte, i)
+	_, err = f.Read(buffer2)
+	if err != nil {
+		fmt.Println("failed to read")
+		return err
+	}
+
+	_, err = f.ReadAt(buffer, offset)
+
+	var sparseIxes []SparseIxEntry
+	sparseIxDecoder := gob.NewDecoder(bytes.NewReader(buffer2))
+	err = sparseIxDecoder.Decode(&sparseIxes)
+
+	//err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &sparseIxOffset)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	//gob.Decoder{}
+
+	//decoder := gob.NewDecoder()
+	//err = binary.Read(f, binary.BigEndian, &sparseIxes)
 
 	return nil
 }
