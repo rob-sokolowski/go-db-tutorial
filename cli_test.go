@@ -31,3 +31,4 @@ func TestCli(t *testing.T) {
 		t.Errorf("unexpected output")
 	}
 }
+
