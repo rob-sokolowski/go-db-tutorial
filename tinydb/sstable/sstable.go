@@ -75,7 +75,8 @@ func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 	return nil
 }
 
-func (t *SSTable) Persist(w io.Writer) error {
+// io.Writer is not getting used
+func (t *SSTable) Persist(wsd io.Writer) error {
 	// write memtable rows to disk:
 	//    create file if not exists
 	//    append to file if it does
@@ -208,7 +209,7 @@ func (t *SSTable) seek(targetKey int) error {
 		return err
 	}
 
-	size := 490 // TODO: set size to nextByteOffset - prevByteOffset
+	size := 522 // TODO: set size to nextByteOffset - prevByteOffset
 	kvbuffer := make([]byte, size) 
 	_, err = f.Read(kvbuffer)
 	if err != nil {
@@ -227,6 +228,7 @@ func (t *SSTable) seek(targetKey int) error {
 			fmt.Println("Error decoding KeyVal:", err)
 			break
 		}
+		fmt.Println("PING")
 
 		if kv.Key == targetKey {
 			fmt.Println("FOUND key: ", kv.Key) 

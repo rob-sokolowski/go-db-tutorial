@@ -47,6 +47,30 @@ func TestSpawnRows(t *testing.T) {
 //	}
 //}
 
+func TestSstableWritesSparseIxAndCanSeek(t *testing.T) {
+	rows := spawnRows(11)
+	filename, _ := tinydb.GenerateFilename("./test-data/sstable")
+	w := bytes.Buffer{}
+	
+
+
+	table, _ := NewSSTable(filename)
+
+	for _, row := range rows {
+		stmnt := tinydb.Statement{
+			Stmnt:       "insert",
+			RowToInsert: &row,
+		}
+
+		_ = table.ExecuteInsert(stmnt, &w)
+	}
+
+	table.Persist(&w)
+
+	// note, persist is implicitly called since we appended 101 rows, we now try to seek from that file
+	_ = table.seek(1)
+}
+
 func TestSstable(t *testing.T) {
 	rows := spawnRows(101)
 	filename, _ := tinydb.GenerateFilename("./test-data/sstable")
@@ -63,6 +87,7 @@ func TestSstable(t *testing.T) {
 
 		_ = table.ExecuteInsert(stmnt, &w)
 	}
+
 
 	// note, persist is implicitly called since we appended 101 rows, we now try to seek from that file
 	_ = table.seek(100)
