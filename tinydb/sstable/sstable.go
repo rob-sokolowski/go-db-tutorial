@@ -75,13 +75,13 @@ func (t *SSTable) ExecuteSelect(statement tinydb.Statement, w io.Writer) error {
 	return nil
 }
 
-// io.Writer is not getting used
-func (t *SSTable) Persist(wsd io.Writer) error {
+// TODO: io.Writer is not getting used - can we remove?
+func (t *SSTable) Persist(w io.Writer) error {
 	// write memtable rows to disk:
 	//    create file if not exists
 	//    append to file if it does
 
-	// clear memtable
+	// TODO: clear memtable
 
 	var b bytes.Buffer
 
@@ -89,7 +89,7 @@ func (t *SSTable) Persist(wsd io.Writer) error {
 
 	iterator := t.tree.Iterator()
 	i := 0
-	sparseIxes := make([]SparseIxEntry, 0) // Q: Do we want to hard-code (len(SparseIxes) == memtableMax / ixSparsity - 1) ?
+	sparseIxes := make([]SparseIxEntry, 0) 
 	for iterator.Next() {
 		k, v := iterator.Key(), iterator.Value()
 
@@ -101,6 +101,7 @@ func (t *SSTable) Persist(wsd io.Writer) error {
 			}
 			sparseIxes = append(sparseIxes, ix)
 		}
+		// fmt.Printf("at index %d offset is %v \n", i, b.Len())
 
 		kv := KeyVal{Key:k.(int), Val: v.(tinydb.Row) ,}
 		err := encoder.Encode(kv)
@@ -108,13 +109,11 @@ func (t *SSTable) Persist(wsd io.Writer) error {
 			fmt.Println(err)
 			return err
 		}
-
 		i++
 	}
 
-
 	// prints out indexes
-	fmt.Println("SPARSE INDXS FROM WRITE: ", sparseIxes)
+	//fmt.Println("SPARSE INDXS FROM WRITE: ", sparseIxes)
 
 	sparseIxesOffset := b.Len()
 
@@ -157,86 +156,79 @@ func (t *SSTable) seek(targetKey int) error {
 		return err
 	}
 
-	// decode sparseIxOffset from buffer
+	//decode sparseIxOffset from buffer
 	var sparseIxOffset uint16
 	err = binary.Read(bytes.NewReader(buffer), binary.BigEndian, &sparseIxOffset)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
+	fmt.Println("sparseIxOffset", sparseIxOffset)
 
-	// write binary for sparseIdx to buffer 
+
+	// seek sparseIdx start 
 	_, err = f.Seek(int64(sparseIxOffset), 0)
 	if err != nil {
 		fmt.Print("Could not seek idx")
 		return err
 	}
 
-	i := offset - int64(sparseIxOffset)
-	buffer2 := make([]byte, i)
-	_, err = f.Read(buffer2)
-	if err != nil {
-		fmt.Println("failed to read sparseIdx")
-		return err
-	}
-
-	// decode sparseIdx from buffer
+	// decode sparseIdx from file
 	var sparseIxes []SparseIxEntry
-	sparseIxDecoder := gob.NewDecoder(bytes.NewReader(buffer2))
+	sparseIxDecoder := gob.NewDecoder(f)
 	err = sparseIxDecoder.Decode(&sparseIxes)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
-
+	
 	fmt.Println("SPARSE INDXS FROM SEEK: ", sparseIxes)
 
 	// START SEEK LOGIC
+
+	// TODO: The gob decoder needs to read the type definition for KeyVal 
+	// stored at the head of the file. If we `seek` to a byte offset without 
+	// first reading the header, it will throw `gob: unknown type id or corrupted data`  
+	// OPTIONS:
+	// 1. Encode a header at the front of each 10-entry block
+	// 2. Switch to a different encoder, like protobuffs
+	// 3. (most hacky) Always decode the first kv pair; _then_ call f.Seek()  
+
+
 	// get keyVal ByteOffset
-	var targetOffset int64
+	var targetKVOffset int64
 
 	for _, e := range sparseIxes {
 		if e.Key == targetKey {
-			targetOffset = int64(e.ByteOffset)
-			// fmt.Println("TARGET OFFSET: ", targetOffset)
+			targetKVOffset = int64(e.ByteOffset)
+			fmt.Println("TARGET OFFSET: ", targetKVOffset)
 		}
 	}
 
-	// read keyVal into byte array and decode
-	_, err = f.Seek(targetOffset, 0)
+	// seek to start of KV pair
+	_, err = f.Seek(targetKVOffset, 0)
 	if err != nil {
 		fmt.Print("Could not seek target")
 		return err
 	}
 
-	size := 522 // TODO: set size to nextByteOffset - prevByteOffset
-	kvbuffer := make([]byte, size) 
-	_, err = f.Read(kvbuffer)
-	if err != nil {
-		fmt.Println("failed to read kvpairs")
-		return err
-	}
-
-	kvDecoder := gob.NewDecoder(bytes.NewReader(kvbuffer))
+	kvDecoder := gob.NewDecoder(f)
 
 	for i := 0; i < t.ixSparsity; i++ {
 
 		var kv KeyVal
 
-		// TODO: fix error `gob: unknown type id or corrupted data`
 		if err := kvDecoder.Decode(&kv); err != nil {
 			fmt.Println("Error decoding KeyVal:", err)
-			break
+			return err
 		}
-		fmt.Println("PING")
+		// fmt.Println("Key Val", kv)
 
 		if kv.Key == targetKey {
 			fmt.Println("FOUND key: ", kv.Key) 
+			return nil
 		} 
-
-
 	}
-
 
 	return nil
 }

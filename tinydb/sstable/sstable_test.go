@@ -1,10 +1,12 @@
 package sstable
 
 import (
+	// "assert"
 	"bytes"
 	"fmt"
+	"encoding/gob"
 	"github.com/rob-sokolowski/go-db-tutorial/tinydb"
-	// "os"
+	"os"
 	"testing"
 )
 
@@ -40,19 +42,42 @@ func TestSpawnRows(t *testing.T) {
 	}
 }
 
-//func TestTest(t * testing.T){
-//	got := false
-//	if got == false {
-//		t.Errorf("test fails")
-//	}
-//}
+
+func TestCanOpenFileAndReadFirstKVPair(t *testing.T){
+	f, _ := os.Open("test-data/sstable-i0hBPp2Z.data")
+	var kv KeyVal
+	decoder := gob.NewDecoder(f)
+
+	f.Seek(0,0)
+	err := decoder.Decode(&kv)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+
+	fmt.Println("KV FROM TEST ", kv)
+
+} 
+
+func TestCanOpenFileAndReadSecondKVPair(t *testing.T){
+	f, _ := os.Open("test-data/sstable-i0hBPp2Z.data")
+	var kv KeyVal
+	decoder := gob.NewDecoder(f)
+
+	f.Seek(125,0)
+	err := decoder.Decode(&kv)
+	if err != nil {
+		t.Fatalf("%s", err) // `gob: unknown type id or corrupted data`
+	}
+
+	fmt.Println("KV FROM TEST ", kv)
+
+} 
+
 
 func TestSstableWritesSparseIxAndCanSeek(t *testing.T) {
 	rows := spawnRows(11)
 	filename, _ := tinydb.GenerateFilename("./test-data/sstable")
 	w := bytes.Buffer{}
-	
-
 
 	table, _ := NewSSTable(filename)
 
@@ -65,9 +90,10 @@ func TestSstableWritesSparseIxAndCanSeek(t *testing.T) {
 		_ = table.ExecuteInsert(stmnt, &w)
 	}
 
+	// force persist
 	table.Persist(&w)
 
-	// note, persist is implicitly called since we appended 101 rows, we now try to seek from that file
+	// this works because the byte offset is still 0
 	_ = table.seek(1)
 }
 
@@ -87,7 +113,6 @@ func TestSstable(t *testing.T) {
 
 		_ = table.ExecuteInsert(stmnt, &w)
 	}
-
 
 	// note, persist is implicitly called since we appended 101 rows, we now try to seek from that file
 	_ = table.seek(100)
