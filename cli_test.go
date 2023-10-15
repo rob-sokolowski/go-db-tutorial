@@ -39,7 +39,7 @@ func TestCli(t *testing.T) {
 	reader := strings.NewReader("insert 1 rob rob@example.com\nselect\n.exit\n")
 	out := bytes.Buffer{}
 
-	Cli(reader, &out, testdbPath)
+	Cli(reader, &out, testdbPath, "NaiveTable")
 
 	want := "db > statement executed.\ndb > &{1 rob rob@example.com}\nstatement executed.\ndb > adios!\n"
 	if out.String() != want {
