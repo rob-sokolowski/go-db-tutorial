@@ -4,6 +4,8 @@ db.data
 
 # don't commit test files (but do keep the folder)
 test-data/
+tinydb/sstable/test-data/
+tinydb/naivetable/test-data/
 
 # IntelliJ IDE data
 .idea/

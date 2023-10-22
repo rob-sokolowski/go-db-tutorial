@@ -15,7 +15,7 @@ import (
 
 func main() {
 	dbpath := flag.String("dbpath", "db.data", "path to file persisting DB data")
-	tableType := flag.String("tableType", "NaiveTable", "type of table")
+	tableType := flag.String("tableType", "SSTable", "type of table")
 	flag.Parse()
 
 	Cli(os.Stdin, os.Stdout, *dbpath, *tableType)
@@ -27,9 +27,10 @@ func Cli(reader io.Reader, writer io.Writer, filename string, tableType string) 
 
 	switch {
 	case tableType == "NaiveTable":
-		t, err = naivetable.NewNaiveTable(filename)
+		//return fmt.Errorf("TODO bring back table")
+		t, err = naivetable.NewNaiveTable(filename, "tablename")
 	case tableType == "SSTable":
-		t, err = sstable.NewSSTable()
+		t, err = sstable.NewSSTable(filename)
 	default:
 		return fmt.Errorf("Unknown table type %s", tableType)
 	}
